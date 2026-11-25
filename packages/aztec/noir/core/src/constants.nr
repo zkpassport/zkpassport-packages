@@ -2,15 +2,20 @@
 pub global VK_FIELDS: u32 = 115;
 pub global PROOF_FIELDS: u32 = 458;
 
-// Public-input layout — mirrors zkpassport-packages Constants.sol / lib/Types.sol.
-// For outer_count_K: total length = K + 5, param commitments = K - 3.
-pub global PI_CERT_ROOT: u32 = 0;
-pub global PI_CIRCUIT_ROOT: u32 = 1;
-pub global PI_CURRENT_DATE: u32 = 2;
-pub global PI_SCOPE: u32 = 3;
-pub global PI_SUBSCOPE: u32 = 4;
+// Public-input layout of a circuits 0.23.x outer proof — mirrors zkpassport-packages
+// Constants.sol / lib/Types.sol. For outer_count_K: total length = K + 6, param commitments = K - 3.
+pub(crate) global PI_CERT_ROOT: u32 = 0;
+pub(crate) global PI_CIRCUIT_ROOT: u32 = 1;
+pub(crate) global PI_CURRENT_DATE: u32 = 2;
+pub(crate) global PI_SCOPE: u32 = 3;
+pub(crate) global PI_SUBSCOPE: u32 = 4;
 pub global PI_PARAMS_START: u32 = 5;
-// Tail (from the end): [len-3] nullifier_type, [len-2] scoped_nullifier, [len-1] oprf_pk_hash
+// Tail (from the end): [len-4] nullifier_type, [len-3] scoped_nullifier, [len-2] oprf_pk_hash,
+// [len-1] verification_method
+
+// How the ID's data was verified, the outer proof's last public input: the eMRTD chip, signed by
+// the issuing country. The only method this library accepts: L1 checks more for the others.
+pub global VERIFICATION_METHOD_ICAO_CHIP: Field = 100;
 
 // NullifierType — mirrors lib/Types.sol
 pub global NULLIFIER_TYPE_NON_SALTED: u8 = 0;
@@ -19,15 +24,22 @@ pub global NULLIFIER_TYPE_NON_SALTED_MOCK: u8 = 2;
 pub global NULLIFIER_TYPE_SALTED_MOCK: u8 = 3;
 pub global NULLIFIER_TYPE_NONE: u8 = 4;
 
+// App Attest's production environment and the face match modes, numbered as the circuits'
+// facematch lib and lib/Types.sol's Environment and FaceMatchMode number them
+pub global APP_ATTEST_ENV_PRODUCTION: u8 = 1;
+pub global FACE_MATCH_MODE_REGULAR: u8 = 1;
+pub global FACE_MATCH_MODE_STRICT: u8 = 2;
+
 // Capsule slots (app-side delivery convention)
 pub global PROOF_CAPSULE_SLOT: Field = 1;
 pub global DISCLOSE_CAPSULE_SLOT: Field = 2;
 pub global SANCTIONS_CAPSULE_SLOT: Field = 3;
+pub global FACE_MATCH_CAPSULE_SLOT: Field = 4;
 
 // Freshness: device clock may run ahead of the (past) anchor-block timestamp
 pub global CURRENT_DATE_MAX_SKEW: u64 = 3600;
 
 // Parameter commitments: the circuits' fixed country-list length, and the offset from their
 // 1900 birthdate epoch to Unix time
-pub global COUNTRY_LIST_LENGTH: u32 = 200;
-pub global SECONDS_BETWEEN_1900_AND_1970: i64 = 2208988800;
+pub(crate) global COUNTRY_LIST_LENGTH: u32 = 200;
+pub(crate) global SECONDS_BETWEEN_1900_AND_1970: i64 = 2208988800;

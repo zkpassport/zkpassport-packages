@@ -15,7 +15,7 @@ global K: u32 = 4;
 fn main(
     verification_key: [Field; 115],
     proof: [Field; 458],
-    public_inputs: pub [Field; K + 5],
+    public_inputs: pub [Field; K + 6],
     expected_vk_hash: pub Field,
     disclose_mask: [bool; 90],
     disclosed_bytes: [u8; 90],
@@ -25,8 +25,8 @@ fn main(
         verification_key,
         proof,
         public_inputs,
-        0, // scope    -- fixture used no domain
-        0, // subscope
+        0, // domain: the disclose fixture has none
+        0, // scope
         false, // dev_mode -- fixture nullifier_type is NON_SALTED (0)
         expected,
     );

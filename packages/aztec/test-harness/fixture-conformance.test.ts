@@ -1,10 +1,11 @@
 // This test pins the fixtures we use to test the Noir libraries to their external references:
-// the commitment anchors in fixtures.nr to the SDK's conformance vectors, FIXTURE_PUBLIC_INPUTS
-// to the public inputs of the checked-in disclose proof fixture, and the proof
-// fixture to the circuits submodule commit it was generated from. The provenance check
-// matters because the proof fixture is self-consistent (the proof verifies against its own
-// embedded vk), so a circuits bump without regeneration would silently keep testing the
-// previous release.
+// - the commitment anchors in fixtures.nr to the SDK's conformance vectors,
+// - FIXTURE_PUBLIC_INPUTS to the public inputs of the checked-in disclose proof fixture,
+// - the proof fixtures themselves to the circuits submodule commit they were generated from,
+// - the App Attest constants in app_attest.nr, and the registry's empty revocation root, to the L1
+//   verifier's.
+// The sanctions anchors are checked by zkpassport-sdk's tests/aztec-query-conformance.test.ts,
+// against the SDK's query builders.
 //
 // Run from the repo root: `bun test packages/aztec/test-harness/fixture-conformance.test.ts`
 import { expect, test } from "bun:test"
@@ -12,30 +13,49 @@ import { execSync } from "child_process"
 import { readFileSync } from "fs"
 import { fileURLToPath } from "url"
 import vectors from "../../zkpassport-utils/conformance/vectors.json"
+import ageFixture from "./fixtures/outer_count_5_age.json"
 import discloseFixture from "./fixtures/outer_count_4_disclose.json"
 import { evaluateExpressions, parseNoirFile } from "./vendor/constants-generator"
 
-const FIXTURES_NR = fileURLToPath(
-  new URL("../noir/core/src/fixtures.nr", import.meta.url),
+const FIXTURES_NR = fileURLToPath(new URL("../noir/core/src/fixtures.nr", import.meta.url))
+const APP_ATTEST_NR = fileURLToPath(new URL("../noir/core/src/app_attest.nr", import.meta.url))
+const REGISTRY_TYPES_NR = fileURLToPath(
+  new URL("../noir/registry_contract/src/types.nr", import.meta.url),
+)
+const CONSTANTS_SOL = fileURLToPath(
+  new URL("../../registry-contracts/src/lib/Constants.sol", import.meta.url),
 )
 // name => decimal string (or an array of them, for array globals)
-const anchors = evaluateExpressions(
-  parseNoirFile(readFileSync(FIXTURES_NR, "utf8")).constantsExpressions,
-)
-const hex = (name: string): string => "0x" + BigInt(anchors[name] as string).toString(16).padStart(64, "0")
+const noirGlobals = (path: string) =>
+  evaluateExpressions(parseNoirFile(readFileSync(path, "utf8")).constantsExpressions)
+const anchors = noirGlobals(FIXTURES_NR)
+const fieldHex = (value: string | bigint): string =>
+  "0x" + BigInt(value).toString(16).padStart(64, "0")
+const hex = (name: string): string => fieldHex(anchors[name] as string)
 const vector = (proofType: string) => vectors.vectors.find((v) => v.proofType === proofType)!
+const namedVector = (name: string) => vectors.vectors.find((v) => v.name === name)!
 
 test("every constant in fixtures.nr is checked here", () => {
   expect(Object.keys(anchors).sort()).toEqual([
     "AGE_18_COMMITMENT",
+    "BIND_ACCOUNT",
+    "BIND_BASE_COMMITMENT",
+    "BIND_COMMITMENT",
+    "BIND_ETHEREUM_COMMITMENT",
+    "BIND_ETHEREUM_SEPOLIA_COMMITMENT",
     "BIRTHDATE_COMMITMENT",
     "DISCLOSE_COMMITMENT",
     "EXPIRY_DATE_COMMITMENT",
+    "FACE_MATCH_ANDROID_STRICT_COMMITMENT",
+    "FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT",
+    "FACE_MATCH_IOS_STRICT_COMMITMENT",
     "FIXTURE_PUBLIC_INPUTS",
     "ISSUING_COUNTRY_EXCLUSION_COMMITMENT",
     "ISSUING_COUNTRY_INCLUSION_COMMITMENT",
     "NATIONALITY_EXCLUSION_COMMITMENT",
     "NATIONALITY_INCLUSION_COMMITMENT",
+    "SANCTIONS_COMMITMENT",
+    "SANCTIONS_ROOT",
   ])
 })
 
@@ -58,16 +78,114 @@ test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
 })
 
+test.each([
+  ["FACE_MATCH_IOS_STRICT_COMMITMENT", "facematch_ios_strict"],
+  ["FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT", "facematch_ios_app_clip_regular"],
+  ["FACE_MATCH_ANDROID_STRICT_COMMITMENT", "facematch_android_strict"],
+])("%s matches the published %s vector", (anchor, name) => {
+  expect(hex(anchor)).toBe(namedVector(name).commitment)
+})
+
+// A library's `bytes32 constant NAME = 0x...;` declarations, by name
+function solidityBytes32Constants(source: string, library: string): Record<string, string> {
+  const body = source.match(new RegExp(`library\\s+${library}\\s*\\{([^}]*)\\}`))?.[1]
+  if (body === undefined) throw new Error(`no library ${library} in Constants.sol`)
+  const code = body.replace(/\/\/.*$/gm, "")
+  const constants = [
+    ...code.matchAll(/bytes32\s+constant\s+(\w+)\s*=\s*(0x[0-9a-fA-F]{64})\s*;/g),
+  ].map(([, name, value]) => [name, fieldHex(value)])
+  // A declaration in any other form would otherwise go unchecked
+  expect(constants).toHaveLength(code.match(/\bconstant\b/g)?.length ?? 0)
+  return Object.fromEntries(constants)
+}
+
+const appAttest = Object.fromEntries(
+  Object.entries(noirGlobals(APP_ATTEST_NR)).map(([name, value]) => [
+    name,
+    fieldHex(value as string),
+  ]),
+)
+
+const l1AppAttest = solidityBytes32Constants(readFileSync(CONSTANTS_SOL, "utf8"), "AppAttest")
+
+test("app_attest.nr holds the L1 verifier's AppAttest constants", () => {
+  expect(Object.keys(l1AppAttest).length).toBeGreaterThan(0)
+  expect(appAttest).toEqual(l1AppAttest)
+})
+
+test("the registry's EMPTY_REVOCATION_ROOT is the L1 verifier's", () => {
+  const registry = readFileSync(REGISTRY_TYPES_NR, "utf8").match(
+    /pub global EMPTY_REVOCATION_ROOT: Field =\s*(0x[0-9a-fA-F]{64});/,
+  )?.[1]
+  expect(registry).toBeDefined()
+  expect(fieldHex(registry!)).toBe(l1AppAttest.EMPTY_REVOCATION_ROOT)
+})
+
+test.each([
+  ["facematch_ios_strict", "IOS_APP_ID_HASH"],
+  ["facematch_ios_app_clip_regular", "IOS_APP_CLIP_APP_ID_HASH"],
+])("the %s vector is a face match from %s, under Apple's root key", (name, appId) => {
+  const { params } = namedVector(name)
+  expect(params.rootKeyLeaf).toBe(appAttest.APPLE_ROOT_KEY_HASH)
+  expect(params.appIdHash).toBe(appAttest[appId])
+})
+
+test("the facematch_android_strict vector is a face match from the Android app, under the empty revocation tree", () => {
+  const { params } = namedVector("facematch_android_strict")
+  expect(params.rootKeyLeaf).toBe(appAttest.GOOGLE_RSA_ROOT_KEY_HASH)
+  expect(params.appIdHash).toBe(appAttest.ANDROID_APP_ID_HASH)
+  expect(params.integrityPublicKeyHash).toBe(appAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH)
+  expect(params.revocationRoot).toBe(appAttest.EMPTY_REVOCATION_ROOT)
+})
+
+test("BIND_ACCOUNT matches the published Aztec testnet bind vector's user address", () => {
+  expect(hex("BIND_ACCOUNT")).toBe(
+    namedVector("bind_user_address_aztec_testnet").params.userAddress,
+  )
+})
+
+test("BIND_COMMITMENT matches the published Aztec testnet bind vector", () => {
+  expect(hex("BIND_COMMITMENT")).toBe(namedVector("bind_user_address_aztec_testnet").commitment)
+})
+
+// Chain ids of 1, 2 and 3 bytes, bound to the same account
+test.each([
+  ["BIND_ETHEREUM_COMMITMENT", "bind_user_address_ethereum"],
+  ["BIND_BASE_COMMITMENT", "bind_user_address_base"],
+  ["BIND_ETHEREUM_SEPOLIA_COMMITMENT", "bind_user_address_ethereum_sepolia"],
+])("%s matches the published %s vector", (anchor, name) => {
+  expect(namedVector(name).params.userAddress).toBe(hex("BIND_ACCOUNT"))
+  expect(hex(anchor)).toBe(namedVector(name).commitment)
+})
+
 test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () => {
   const pis = anchors.FIXTURE_PUBLIC_INPUTS
   expect(Array.isArray(pis)).toBe(true)
-  expect(pis).toHaveLength(9)
+  expect(pis).toHaveLength(10)
   expect((pis as string[]).map(BigInt)).toEqual(
     discloseFixture.publicInputs.map((pi: string) => BigInt(pi)),
   )
 })
 
-test("the proof fixture was generated from the pinned circuits commit", () => {
+// The age fixture is an outer_count_5 proof (age + bind subproofs): slots 5 and 6 are its two
+// param commitments, in prover-chosen order: the age anchor and the bind subproof's commitment,
+// over the address and the chain the fixture is bound to. core's txe.nr test recomputes the
+// latter from proof.nr's bound address and chain id.
+test("the age fixture's param commitments are the age anchor and its bind commitment", () => {
+  expect(ageFixture.publicInputs).toHaveLength(11)
+  const params = ageFixture.publicInputs.slice(5, 7).map((pi: string) => BigInt(pi))
+  const expected = [
+    BigInt(anchors.AGE_18_COMMITMENT as string),
+    BigInt(ageFixture.bindParamCommitment),
+  ]
+  expect(params.toSorted()).toEqual(expected.toSorted())
+})
+
+test("the age fixture is bound to the BIND_ACCOUNT anchor", () => {
+  expect(BigInt(ageFixture.bindAddress)).toBe(BigInt(anchors.BIND_ACCOUNT as string))
+})
+
+test("proof fixtures were generated from the pinned circuits commit", () => {
   // The gitlink recorded in the tree ("160000 commit <sha>\tpath"), not the submodule
   // checkout, so this works without `git submodule update`.
   const pinnedCommit = execSync("git ls-tree HEAD packages/aztec/test-harness/circuits", {
@@ -76,5 +194,71 @@ test("the proof fixture was generated from the pinned circuits commit", () => {
     .toString()
     .split(/\s+/)[2]
   expect(pinnedCommit).toMatch(/^[0-9a-f]{40}$/)
+  expect(ageFixture.circuitsCommit).toBe(pinnedCommit)
   expect(discloseFixture.circuitsCommit).toBe(pinnedCommit)
+})
+
+test("each proof fixture records its own outer circuit", () => {
+  expect(discloseFixture.circuit).toBe("outer_count_4")
+  expect(ageFixture.circuit).toBe("outer_count_5")
+  expect(ageFixture.vkeyHashBB).not.toBe(discloseFixture.vkeyHashBB)
+})
+
+test("both proof fixtures were proved with the same circuits release", () => {
+  expect(ageFixture.circuitVersion).toMatch(/^\d+\.\d+\.\d+$/)
+  expect(discloseFixture.circuitVersion).toBe(ageFixture.circuitVersion)
+  expect(discloseFixture.circuitRegistryRoot).toBe(ageFixture.circuitRegistryRoot)
+})
+
+// fixtures/proof.nr is regenerated by generate-proof-fixtures.sh when a new proof is captured;
+// the JSON must stay in step with it.
+test("the proof-fixture globals match the age proof fixture", () => {
+  const PROOF_NR = fileURLToPath(new URL("../noir/core/src/fixtures/proof.nr", import.meta.url))
+
+  const gen = evaluateExpressions(
+    parseNoirFile(readFileSync(PROOF_NR, "utf8")).constantsExpressions,
+  )
+
+  const expectedBlob = [
+    ...ageFixture.vkeyFields,
+    ...ageFixture.proof,
+    ...ageFixture.publicInputs,
+    ageFixture.circuitVersionPacked,
+  ].map((x: string) => BigInt(x).toString())
+
+  expect(gen.AGE_FIXTURE_BLOB).toEqual(expectedBlob)
+
+  expect(BigInt(gen.AGE_FIXTURE_CERT_ROOT as string)).toBe(
+    BigInt(ageFixture.certificateRegistryRoot),
+  )
+
+  expect(BigInt(gen.AGE_FIXTURE_CIRCUIT_ROOT as string)).toBe(
+    BigInt(ageFixture.circuitRegistryRoot),
+  )
+
+  expect(BigInt(gen.AGE_FIXTURE_VK_HASH as string)).toBe(BigInt(ageFixture.vkeyHashBB))
+  expect(BigInt(gen.AGE_FIXTURE_CURRENT_DATE as string)).toBe(BigInt(ageFixture.nowTimestamp))
+  expect(BigInt(gen.AGE_FIXTURE_BIND_ADDRESS as string)).toBe(BigInt(ageFixture.bindAddress))
+  expect(BigInt(gen.AGE_FIXTURE_BIND_CHAIN_ID as string)).toBe(BigInt(ageFixture.bindChainId))
+  expect(BigInt(gen.AGE_FIXTURE_CIRCUIT_VERSION as string)).toBe(
+    BigInt(ageFixture.circuitVersionPacked),
+  )
+})
+
+// The registry keys vks by the packed version and the proof capsule carries it: both fixtures pack
+// their release the way the SDK does (2-byte big-endian major, minor, patch, left-aligned).
+test("both proof fixtures pack their circuits release like the SDK", () => {
+  for (const fixture of [ageFixture, discloseFixture]) {
+    const [major, minor, patch] = fixture.circuitVersion.split(".").map(BigInt)
+    expect(BigInt(fixture.circuitVersionPacked)).toBe(
+      (major << 240n) | (minor << 224n) | (patch << 208n),
+    )
+  }
+})
+
+// The outer proof's last public input is the verification method, and the library only accepts
+// an ICAO chip read (100)
+test("both proof fixtures are ICAO chip proofs", () => {
+  expect(BigInt(ageFixture.publicInputs.at(-1)!)).toBe(100n)
+  expect(BigInt(discloseFixture.publicInputs.at(-1)!)).toBe(100n)
 })

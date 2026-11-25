@@ -108,6 +108,7 @@ describe("Query Builder", () => {
     expect(config).toEqual({
       fullname: { disclose: true },
       birthdate: { disclose: true },
+      document_type: { disclose: true },
     })
   })
 
@@ -246,7 +247,7 @@ describe("Query Builder", () => {
     })
   })
 
-  test("should build sanctions query defaulting to all countries and lists", async () => {
+  test("should build a strict sanctions query of all countries and lists by default", async () => {
     const result = queryBuilder.sanctions().done()
 
     const configPart = new URL(result.url).searchParams.get("c")!
@@ -255,7 +256,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: "all",
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })
 
@@ -276,6 +277,19 @@ describe("Query Builder", () => {
     })
   })
 
+  test("should build sanctions query with non-strict mode", async () => {
+    const result = queryBuilder.sanctions("all", "all", { strict: false }).done()
+
+    const configPart = new URL(result.url).searchParams.get("c")!
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+      strict: false,
+    })
+  })
+
   /*test("should build sanctions query for single country", async () => {
     const result = queryBuilder.sanctions("GB").done()
 
@@ -285,7 +299,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["GB"],
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })
 
@@ -298,7 +312,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US"],
       lists: ["OFAC_SDN"],
-      strict: false,
+      strict: true,
     })
   })
 
@@ -311,7 +325,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US", "GB", "CH", "EU"],
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })
 
@@ -329,7 +343,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US", "GB", "CH", "EU"],
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })*/
 
@@ -439,7 +453,7 @@ describe("createQuery (offline mode)", () => {
       age: { gte: 18 },
       fullname: { disclose: true },
       nationality: { in: ["FRA", "DEU"] },
-      sanctions: { countries: "all", lists: "all", strict: false },
+      sanctions: { countries: "all", lists: "all", strict: true },
     })
   })
 
@@ -450,6 +464,16 @@ describe("createQuery (offline mode)", () => {
       countries: "all",
       lists: "all",
       strict: true,
+    })
+  })
+
+  test("should build sanctions query with non-strict mode", () => {
+    const result = zkPassport.createQuery().sanctions("all", "all", { strict: false }).done()
+
+    expect(result.query.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+      strict: false,
     })
   })
 
@@ -541,7 +565,10 @@ describe("Policy-driven requests", () => {
 
     expect(lastFetchUrl).toBe("https://dashboard-api.zkpassport.id/public/project?domain=localhost")
     expect(result.policy).toBe("pol_xyz")
-    expect(result.query).toEqual(sampleConfig.policies[0].query)
+    expect(result.query).toEqual({
+      ...sampleConfig.policies[0].query,
+      document_type: { disclose: true },
+    })
 
     const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
@@ -669,6 +696,7 @@ describe("Policy-driven requests", () => {
     expect(result.policy).toBe("pol_xyz")
     expect(result.query).toEqual({
       ...sampleConfig.policies[0].query,
+      document_type: { disclose: true },
       bind: { user_address: "0x1234abcd", chain: "ethereum" },
     })
   })

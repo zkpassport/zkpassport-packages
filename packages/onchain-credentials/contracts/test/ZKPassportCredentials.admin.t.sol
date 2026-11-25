@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
 contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
@@ -58,7 +58,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
         zkPassportCredentials.createPolicy(
             bytes32(uint256(99)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             1 days,
             "x",
             false,
@@ -78,8 +78,8 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
     }
 
     function testAdminCanSwapPolicyEvaluator() public {
-        PolicyEvaluatorV1 newEvaluator =
-            new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)), true, NullifierType.SALTED_NULLIFIER);
+        PolicyEvaluatorV2 newEvaluator =
+            new PolicyEvaluatorV2(IRootVerifier(address(mockVerifier)), true, NullifierType.SALTED_NULLIFIER);
         vm.prank(admin);
         vm.expectEmit(true, true, false, false);
         emit ZKPassportCredentials.PolicyEvaluatorUpdated(address(evaluator), address(newEvaluator));
@@ -96,7 +96,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
     function testCannotSwapPolicyEvaluatorToZero() public {
         vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
-        zkPassportCredentials.setPolicyEvaluator(PolicyEvaluatorV1(address(0)));
+        zkPassportCredentials.setPolicyEvaluator(PolicyEvaluatorV2(address(0)));
     }
 
     function testAdminCanSetDomain() public {
@@ -117,7 +117,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         mockHelper.setExpectedScopes(DOMAIN, zkPassportCredentials.policyScope(policyId));
         vm.prank(admin);
         zkPassportCredentials.setDomain("attest.example");
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongScope.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongScope.selector);
         zkPassportCredentials.issue(policyId, _params());
         mockHelper.setExpectedScopes("attest.example", zkPassportCredentials.policyScope(policyId));
         zkPassportCredentials.issue(policyId, _params());

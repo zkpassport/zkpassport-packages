@@ -70,6 +70,7 @@ describe("verify() config.rpcUrl", () => {
       uniqueIdentifierType: NullifierType.NON_SALTED,
       queryResultErrors: {},
       rootTimestamp: undefined,
+      verificationMethod: 100,
     })
     bbVerifierSpy = spyOn(bbVerifier, "createUltraHonkVerifier").mockResolvedValue({
       verifier: { verifyProof: async () => true },

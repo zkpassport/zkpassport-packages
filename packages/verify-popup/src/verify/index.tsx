@@ -1,17 +1,26 @@
 import { useEffect, useState } from "react"
+import type { QueryBuilderResult } from "@zkpassport/sdk"
 import type { PopupConfigureMessage } from "@zkpassport/sdk/popup"
+import { describeQuery, isMobileLike } from "@zkpassport/ui/hosted"
 
 import type { OutgoingEvent } from "../app"
 import { FlowCard } from "../shared/flow-card"
 import { Done } from "../shared/done"
 import { useConfirmClose } from "../shared/use-confirm-close"
+import { useContinueToAppClip } from "../shared/use-open-app"
 import { ErrorScreen } from "../shared/error"
 import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
-import { Intro } from "./intro"
+import { Intro, IntroAsks } from "./intro"
+import { codeReplaced, codeShown, type Attempts } from "./lane"
+import { describePhoneError } from "./phone-errors"
 import { Scan } from "./scan"
-import { Waiting, withProof, type ScanProgress } from "./waiting"
+import { useRequestUrl } from "./use-request-url"
+import { Waiting, withProof, type PhoneState, type ScanProgress } from "./waiting"
+
+/** A rejected promise on `success` keeps the result from being shown as verified. */
+export type SendEvent = (message: OutgoingEvent) => void | Promise<void>
 
 type VerifyFlowProps = {
   request: PopupConfigureMessage["request"]
@@ -19,12 +28,20 @@ type VerifyFlowProps = {
   // Hostname of the relying party page; the header falls back to it when no name is sent
   rpHost: string
   session: Session
-  send: (message: OutgoingEvent) => void
+  send: SendEvent
 }
 
 type DomainResolution = { domain: string } | { error: string } | null
 
-type Failure = { message: string; keepsBridge?: boolean }
+type Failure = {
+  title?: string
+  message: string
+  // The raw reason, kept for a bug report but folded away from the explanation
+  detail?: string
+  retryLabel?: string
+  keepsBridge?: boolean
+  explained?: boolean
+}
 
 /**
  * Settles which domain the request is made under before anything is sent to the bridge: the
@@ -56,16 +73,27 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
 
   if (resolution && "error" in resolution) {
     return (
-      <FlowCard name={appName} logo={request.logo} screenKey="error">
-        <ErrorScreen message={resolution.error} onRetry={() => setAttempt((n) => n + 1)} />
+      <FlowCard screenKey="error">
+        <ErrorScreen
+          title="This site isn’t set up yet"
+          message={`${appName} can’t use ZKPassport verification from this page yet.`}
+          detail={resolution.error}
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
       </FlowCard>
     )
   }
 
   if (!resolution) {
     return (
-      <FlowCard name={appName} logo={request.logo} screenKey="intro">
-        <Intro appName={appName} query={null} purpose={request.purpose} onContinue={() => {}} />
+      <FlowCard screenKey="intro">
+        <Intro
+          appName={appName}
+          logo={request.logo}
+          query={null}
+          purpose={request.purpose}
+          onContinue={() => {}}
+        />
       </FlowCard>
     )
   }
@@ -76,37 +104,57 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
       request={request}
       query={query}
       appName={appName}
-      logo={request.logo}
       session={session}
       send={send}
     />
   )
 }
 
-function VerifyRequest({
-  domain,
-  request,
-  query,
-  appName,
-  logo,
-  session,
-  send,
-}: {
+type VerifyRequestProps = {
   domain: string
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
   appName: string
-  logo?: string
   session: Session
-  send: (message: OutgoingEvent) => void
-}) {
+  send: SendEvent
+  onRequestCreated?: (
+    request: QueryBuilderResult,
+    info: { resumed: boolean },
+  ) => void | Promise<void>
+}
+
+export function VerifyRequest({
+  domain,
+  request,
+  query,
+  appName,
+  session,
+  send,
+  onRequestCreated,
+}: VerifyRequestProps) {
   // Coming back to this page should not ask for anything the user has already done
-  const [consented, setConsented] = useState(session.resumed)
+  const [consented, setConsented] = useState(() => session.resumed || isMobileLike())
   // A dashboard policy arrives as {}: the real checks come back from the SDK
   const hasQuery = Object.keys(query ?? {}).length > 0
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
+  const [phone, setPhone] = useState<PhoneState>(() =>
+    scan !== null && session.resumed && readSession(session)?.keyPair ? "checking" : null,
+  )
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
+  const [attempts, setAttempts] = useState<Attempts>(() => {
+    const stored = readSession(session)
+    return { codeOnScreen: stored?.codeOnScreen, stalledAttempts: stored?.stalledAttempts }
+  })
+
+  const recordAttempts = (next: Attempts) => {
+    if (next === attempts) return
+    setAttempts(next)
+    updateSession(session, {
+      codeOnScreen: next.codeOnScreen,
+      stalledAttempts: next.stalledAttempts,
+    })
+  }
 
   const failWith = (reason: Failure) => {
     setScan(null)
@@ -115,10 +163,16 @@ function VerifyRequest({
     setFailure(reason)
   }
 
+  const failFrom = (reason: unknown) =>
+    failWith({ message: reason instanceof Error ? reason.message : String(reason) })
+
   // Nothing reports a phone that has gone quiet, so the wait needs its own way out
   const startAgain = () => {
+    setFailure(null)
     setScan(null)
+    setPhone(null)
     updateSession(session, { stage: undefined })
+    recordAttempts(codeReplaced(attempts))
     req.retry()
   }
 
@@ -126,6 +180,11 @@ function VerifyRequest({
   const req = useRequest(
     { domain, request, query, session },
     {
+      onCreated: (created, info) => {
+        Promise.resolve()
+          .then(() => onRequestCreated?.(created, info))
+          .catch(failFrom)
+      },
       onReceived: () => {
         setScan({ stage: "scanned" })
         updateSession(session, { stage: "scanned" })
@@ -141,26 +200,56 @@ function VerifyRequest({
         send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
       },
       onSuccess: ({ proofs, result }) => {
-        setVerified(true)
-        send({ type: "success", proofs, result })
+        Promise.resolve()
+          .then(() => send({ type: "success", proofs, result }))
+          .then(() => setVerified(true), failFrom)
       },
       onReject: () => {
-        failWith({ message: "The request was declined on your phone." })
+        failWith({
+          title: "Request declined",
+          message: "You declined the request in ZKPassport. Start again if that was a mistake.",
+          retryLabel: "Start again",
+          explained: true,
+        })
         send({ type: "rejected" })
       },
       onError: (message) => {
-        failWith({ message: String(message) })
-        send({ type: "error", message: String(message) })
+        const known = describePhoneError(String(message), appName)
+        failWith(
+          known
+            ? { title: known.title, message: known.message, explained: true }
+            : {
+                title: "Verification didn’t finish",
+                message: "Something went wrong on your phone. Try again.",
+                detail: String(message),
+              },
+        )
+        send({ type: "error", message: String(message), code: known?.code })
       },
       onConnectionLost: () => {
-        failWith({ message: "The connection to your phone was lost.", keepsBridge: true })
+        failWith({
+          title: "Lost connection to your phone",
+          message: "Check your phone is online, then reconnect.",
+          keepsBridge: true,
+        })
       },
+      onPhoneConnected: (connected) =>
+        setPhone((current) => (current === null ? null : connected ? "connected" : "gone")),
     },
   )
+
+  useEffect(() => {
+    if (req.url) recordAttempts(codeShown(attempts))
+  }, [req.url])
 
   // From the moment the request is live: closing drops the bridge, and once the
   // phone has joined it also throws away work in progress
   useConfirmClose(!verified && !failure)
+
+  const link = useRequestUrl(req.url, request, attempts.stalledAttempts)
+  const appClip = useContinueToAppClip(link.url, () => setConsented(true))
+
+  const askedQuery = req.query ?? (hasQuery ? query : null)
 
   const screen = (() => {
     if (verified) return "done"
@@ -173,25 +262,54 @@ function VerifyRequest({
   // replay the decline itself.
   const tryAgain = () => {
     const keepsBridge = failure?.keepsBridge
+    const explained = failure?.explained
     setFailure(null)
-    if (keepsBridge) req.resume()
-    else req.retry()
+    if (keepsBridge) return req.resume()
+    recordAttempts(codeReplaced(attempts, explained))
+    req.retry()
   }
 
   return (
-    <FlowCard name={appName} logo={logo} screenKey={screen}>
+    <FlowCard screenKey={screen}>
       {screen === "done" ? <Done outcome={{ kind: "verified" }} appName={appName} /> : null}
       {screen === "error" && failure ? (
-        <ErrorScreen message={failure.message} onRetry={tryAgain} />
+        <ErrorScreen
+          title={failure.title}
+          message={failure.message}
+          detail={failure.detail}
+          onRetry={tryAgain}
+          retryLabel={failure.keepsBridge ? "Reconnect" : failure.retryLabel}
+          onStartOver={failure.keepsBridge ? startAgain : undefined}
+        />
       ) : null}
-      {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
-      {screen === "scan" ? <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} /> : null}
+      {screen === "waiting" && scan ? (
+        <Waiting progress={scan} onStartAgain={startAgain} phone={phone} requestUrl={link.url} />
+      ) : null}
+      {screen === "scan" ? (
+        <Scan
+          state={req.state}
+          url={link.url}
+          qrSvg={link.qrSvg}
+          onNewCode={startAgain}
+          appClipOpened={appClip.appClipOpened}
+          sessionId={session.id}
+          asks={
+            <IntroAsks
+              appName={appName}
+              logo={request.logo}
+              items={askedQuery ? describeQuery(askedQuery) : null}
+              purpose={request.purpose}
+            />
+          }
+        />
+      ) : null}
       {screen === "intro" ? (
         <Intro
           appName={appName}
-          query={req.query ?? (hasQuery ? query : null)}
+          logo={request.logo}
+          query={askedQuery}
           purpose={request.purpose}
-          onContinue={() => setConsented(true)}
+          onContinue={appClip.onContinue}
         />
       ) : null}
     </FlowCard>

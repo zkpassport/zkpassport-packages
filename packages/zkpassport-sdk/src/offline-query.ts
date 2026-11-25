@@ -160,14 +160,14 @@ export function createOfflineQuery(): QueryBuilder<"offline"> {
     sanctions: (
       countries: SanctionsCountries = "all",
       lists: SanctionsLists = "all",
-      options: { strict?: boolean } = { strict: false },
+      options: { strict?: boolean } = { strict: true },
     ) => {
       assertNotPolicyLocked("sanctions")
       config[topic].sanctions = {
         ...config[topic].sanctions,
         countries,
         lists,
-        strict: options.strict ?? false,
+        strict: options.strict ?? true,
       }
       return builder as unknown as QueryBuilder
     },

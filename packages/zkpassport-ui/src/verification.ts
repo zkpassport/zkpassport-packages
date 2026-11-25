@@ -1,12 +1,16 @@
+import type { AllowedVerificationMethod } from "@zkpassport/sdk"
 import {
   openVerificationPopup,
+  type OpenVerificationPopupOptions,
   type PopupCredentialConfig,
+  type PopupErrorCode,
   type PopupRequestConfig,
   type PopupSuccess,
   type VerificationPopupHandle,
 } from "@zkpassport/sdk/popup"
 import { getChainFromId, NullifierType, type ProofMode } from "@zkpassport/sdk"
 
+import { detectMobileOs } from "./app-link"
 import { isInAppBrowser, isMobileLike } from "./environment"
 import { ZKPassportError, type ZKPassportErrorKind } from "./errors"
 import { logger } from "./logger"
@@ -39,6 +43,8 @@ export type ServiceConfig = {
   uniqueIdentifierType?: "salted" | "non-salted" | "none"
   validity?: number
   devMode?: boolean
+  /** The credentials your service accepts; signed credentials only unless set */
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }
 
 /** Points the flow at your own deployment of the services ZKPassport runs. */
@@ -47,8 +53,6 @@ export type VerificationOverrides = {
   cloudProverUrl?: string
   /** @internal Points the flow at another popup origin; for testing. */
   popupUrl?: string
-  /** Opt into the no-install App Clip lane: the popup emits a `/c` request URL instead of `/r`. */
-  appClip?: boolean
 }
 
 type Callbacks = {
@@ -94,8 +98,13 @@ export type VerificationController = {
   dispose: () => void
 }
 
-const POPUP_BLOCKED_MESSAGE =
-  "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
+// Browsers on iOS have one pop-up switch for every site, so there is no per-site permission to grant
+function popupBlockedMessage(): string {
+  if (detectMobileOs() === "ios") {
+    return "The verification window didn’t open. Tap the button again, or turn off pop-up blocking in your browser’s settings."
+  }
+  return "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
+}
 // Names the site so the user knows what to reopen
 function inAppBrowserMessage(): string {
   const site = window.location.hostname.replace(/^www\./, "") || "this page"
@@ -137,7 +146,8 @@ export function createVerification(
 ): VerificationController {
   // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
   const resumableNow = (status: VerificationStatus) =>
-    status !== "in-progress" && !!loadPendingVerification(toRequestKey(getOptions()))
+    (status !== "in-progress" || isMobileLike()) &&
+    !!loadPendingVerification(toRequestKey(getOptions()))
 
   let state: VerificationState = {
     status: "idle",
@@ -174,7 +184,7 @@ export function createVerification(
     const resuming = loadPendingVerification(requestKey)
 
     if (popupHandle) {
-      if (!popupHandle.popup.closed) {
+      if (!popupHandle.popup.closed && !isMobileLike()) {
         popupHandle.popup.focus()
         return
       }
@@ -196,6 +206,7 @@ export function createVerification(
       kind: ZKPassportError["kind"],
       message: string,
       { status, openInBrowserUrl }: { status?: VerificationStatus; openInBrowserUrl?: string } = {},
+      code?: PopupErrorCode,
     ) => {
       if (settled || latestAttempt !== thisAttempt) return
       settled = true
@@ -203,7 +214,8 @@ export function createVerification(
       // "blocked" is this browser refusing to open a window, not an outcome for the verification.
       const stillRunning =
         kind === "blocked" ||
-        (kind === "closed" && loadPendingVerification(requestKey)?.phoneJoined === true)
+        (kind === "closed" &&
+          (isMobileLike() || loadPendingVerification(requestKey)?.phoneJoined === true))
       if (!stillRunning) forgetPendingVerification(requestKey)
       setStatus(
         status ?? "error",
@@ -211,7 +223,7 @@ export function createVerification(
         kind,
         openInBrowserUrl ?? null,
       )
-      getOptions().onError?.(new ZKPassportError(kind, message))
+      getOptions().onError?.(new ZKPassportError(kind, message, code))
     }
 
     let request: { config: PopupRequestConfig; query: object; credential?: PopupCredentialConfig }
@@ -232,9 +244,8 @@ export function createVerification(
       return
     }
 
-    const handle = openVerificationPopup({
+    const popupOptions: OpenVerificationPopupOptions = {
       popupUrl: options.overrides?.popupUrl,
-      session: resuming?.session,
       request: request.config,
       query: request.query as never,
       credential: request.credential,
@@ -271,14 +282,19 @@ export function createVerification(
           )
         },
         onReject: () => fail("rejected", "Verification was declined."),
-        onError: (message) => fail("failed", message),
+        onError: (message, code) => fail("failed", message, {}, code),
         // Closing without a result returns the button to idle: nothing failed, the user left
         onClose: () => fail("closed", "The verification window was closed.", { status: "idle" }),
       },
-    })
+    }
+    // A browser can refuse to bring back the earlier verification's window yet open a new one, so
+    // the tap still gets the user a verification
+    const handle =
+      openVerificationPopup({ ...popupOptions, session: resuming?.session }) ??
+      (resuming ? openVerificationPopup(popupOptions) : null)
 
     if (!handle) {
-      fail("blocked", POPUP_BLOCKED_MESSAGE)
+      fail("blocked", popupBlockedMessage())
       return
     }
 
@@ -287,7 +303,7 @@ export function createVerification(
     rememberPendingVerification(handle.session, requestKey)
     setStatus("in-progress")
 
-    if (resuming) {
+    if (handle.session === resuming?.session) {
       stopHiddenWatch = watchForHiddenPopup(() => {
         stopHiddenWatch = null
         if (settled || latestAttempt !== thisAttempt) return
@@ -421,9 +437,9 @@ function toPopupRequest(
     devMode: service.devMode,
     bridgeUrl: options.overrides?.bridgeUrl,
     cloudProverUrl: options.overrides?.cloudProverUrl,
-    appClip: options.overrides?.appClip,
     // Left unset when not configured, so the SDK's own default applies
     uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
+    allowedVerificationMethods: service.allowedVerificationMethods,
   }
   for (const key of Object.keys(config) as Array<keyof PopupRequestConfig>) {
     if (config[key] === undefined) delete config[key]

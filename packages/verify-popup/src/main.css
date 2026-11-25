@@ -4,7 +4,6 @@
 /* On the body only while a flow is mounted, so these colours stay off the
    popup's other screens. */
 body.flow-page {
-  --zkp-bg: #0a1746;
   --zkp-stage: #182659;
   --zkp-surface: #27366e;
   --zkp-raised: #35447f;
@@ -18,7 +17,11 @@ body.flow-page {
   --zkp-error: #f95a7e;
   /* The QR stays black on white, so it needs a quiet zone against a dark card */
   --zkp-qr-padding: 15px;
-  background: #060c22;
+  /* One type scale for every screen: titles, body, and the small print under them */
+  --zkp-text-title: 22px;
+  --zkp-text-body: 14px;
+  --zkp-text-small: 12.5px;
+  background: #08112f;
   color-scheme: dark;
   /* The window is a fixed size and the card fills it, so the page itself never
      scrolls; a screen that outgrows the card scrolls inside the stage */
@@ -41,12 +44,18 @@ body.flow-page {
   max-width: 420px;
   flex: 1;
   max-height: 780px;
-  padding: 14px 8px 12px;
+  padding: 6px 16px 14px;
   border: none;
-  border-radius: 26px;
-  background: var(--zkp-bg);
+  border-radius: 8px;
+  background: var(--zkp-stage);
   color: var(--zkp-fg);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  /* The stack the Verify with ZKPassport button uses, so the two read as one
+     product across the website and this page */
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 14px;
   line-height: 1.4;
   text-align: left;
@@ -61,8 +70,6 @@ body.flow-page {
   cursor: pointer;
 }
 
-/* The lighter box the step lives on, so the eye lands on the step and not on
-   the header or the progress bar that frame it */
 .flow-stage {
   display: flex;
   flex-direction: column;
@@ -73,64 +80,56 @@ body.flow-page {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  margin-top: 16px;
-  padding: 0 8px;
-  border-radius: 20px;
-  background: var(--zkp-stage);
 }
 
-/* Who is asking on the left, who is checking on the right. Nothing countable
-   here — it would read as a step indicator. */
-.flow-id {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  padding: 0 12px;
-}
-
-.flow-id-app {
+.flow-powered {
   display: flex;
   align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.flow-id-logo {
-  width: 19px;
-  height: 19px;
-  border-radius: 6px;
-  object-fit: contain;
-}
-
-.flow-id-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--zkp-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Names the pair as a handshake between the two, and keeps clear of a long app
-   name once it has ellipsised */
-.flow-id-tie {
-  margin: 0 12px;
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 18px 0 6px;
+  font-size: var(--zkp-text-small);
   color: var(--zkp-dim);
 }
 
-.flow-id-mark {
-  justify-self: end;
+.flow-powered-mark {
   line-height: 0;
 }
 
-.flow-id-mark svg {
-  width: 84px;
+.flow-powered-mark svg {
+  width: 78px;
   height: auto;
   display: block;
+}
+
+/* A full browser tab is wider than the 460px popup window, and has no fixed
+   height to fill: the card takes the height its screen needs and the page
+   scrolls when that is more than the window, so nothing scrolls inside */
+@media (min-width: 600px) {
+  body.flow-page {
+    overflow: auto;
+    background:
+      radial-gradient(ellipse 1000px 820px at 50% 460px, #1a2a75, transparent 72%) fixed,
+      radial-gradient(ellipse 1600px 700px at 50% 100%, #0f1b4a, transparent 70%) fixed,
+      #070f2b;
+  }
+  .flow-frame {
+    padding-top: clamp(18px, (100dvh - 780px) / 2, 64px) !important;
+  }
+  .flow-card {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.06),
+      0 24px 80px rgb(2 6 24 / 0.55);
+    flex: none;
+    max-height: none;
+    /* The popup window's inner height, so short screens keep the card's
+       proportions, capped so the card alone never overflows a short window */
+    min-height: min(742px, calc(100dvh - 38px));
+  }
+  .flow-stage {
+    overflow: visible;
+  }
 }
 
 .flow-step {
@@ -187,34 +186,6 @@ body.flow-page {
   display: none;
 }
 
-/* The card sets its own width, so its wrapper must not shrink to fit */
-.flow-card-slot {
-  width: 100%;
-}
-
-.flow-page .zkp-chip-symbol {
-  width: 38px;
-  margin-bottom: 3px;
-  color: var(--zkp-fg);
-}
-
-.flow-privacy {
-  display: none;
-  justify-content: center;
-  gap: 8px;
-  margin: 0;
-  padding: 16px 0 0;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--zkp-brand);
-}
-
-.flow-privacy span + span::before {
-  content: "·";
-  margin-right: 8px;
-  color: var(--zkp-dim);
-}
-
 /* The resolving screen borrows the request panel, which no longer carries a
    surface of its own */
 .flow-skeleton {
@@ -227,31 +198,10 @@ body.flow-page {
 .flow-lede {
   margin: 0;
   padding: 0 4px;
-  font-size: 12.5px;
+  font-size: var(--zkp-text-body);
   line-height: 1.5;
   text-align: center;
   color: var(--zkp-muted);
-}
-
-/* The card owns the intro/QR switch, so the flow follows it from the outside */
-.flow-when-intro,
-.flow-when-qr {
-  display: none;
-}
-
-.scan-fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.scan-fallback-label {
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--zkp-fg);
 }
 
 /* Also used outside a flow card, where the card's colour variables are unset */
@@ -270,7 +220,7 @@ body.flow-page {
   border-radius: 4px;
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--zkp-text-small);
   color: var(--zkp-fg, inherit);
   cursor: pointer;
   transition: background 150ms ease;
@@ -283,15 +233,6 @@ body.flow-page {
 .flow-quietbtn .flow-glyph {
   width: 13px;
   height: 13px;
-}
-
-.scan-fallback-hint {
-  margin: 0;
-  max-width: 280px;
-  font-size: 11.5px;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--zkp-dim, var(--zkp-muted));
 }
 
 /* Every step leads with its title, centred over whatever it is introducing */
@@ -313,14 +254,14 @@ body.flow-page {
   border-radius: 999px;
   background: color-mix(in srgb, var(--zkp-success) 14%, transparent);
   color: var(--zkp-success);
-  font-size: 11.5px;
+  font-size: var(--zkp-text-small);
   font-weight: 600;
 }
 
 .flow-title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--zkp-text-title);
+  font-weight: 600;
   line-height: 1.25;
   letter-spacing: -0.015em;
   color: var(--zkp-fg);
@@ -329,7 +270,7 @@ body.flow-page {
 /* One line, in plain words */
 .flow-hint {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--zkp-text-body);
   line-height: 1.45;
   color: var(--zkp-muted);
 }
@@ -342,6 +283,17 @@ body.flow-page {
   gap: 8px;
   margin-top: auto;
   padding: 16px 0 0;
+}
+
+.flow-footlinks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.flow-footlinks:empty {
+  display: none;
 }
 
 .flow-actions:empty {
@@ -386,7 +338,7 @@ body.flow-page {
   margin: 0;
   padding: 0 16px;
   border-top: 1px solid var(--zkp-border);
-  font-size: 13.5px;
+  font-size: var(--zkp-text-body);
 }
 
 .flow-row {
@@ -455,7 +407,7 @@ a.flow-address[data-chip]:hover {
   border-radius: 999px;
   background: var(--zkp-raised);
   color: var(--zkp-muted);
-  font-size: 12.5px;
+  font-size: var(--zkp-text-small);
   font-weight: 500;
   transition:
     background 120ms ease,
@@ -499,7 +451,7 @@ a.flow-address[data-chip]:hover {
 .flow-note {
   max-width: 280px;
   margin: 0 auto;
-  font-size: 12.5px;
+  font-size: var(--zkp-text-small);
   line-height: 1.5;
   text-align: center;
   color: var(--zkp-dim);
@@ -574,7 +526,7 @@ a.flow-address[data-chip]:hover {
   justify-content: center;
   gap: 3px;
   margin: 0;
-  padding: 16px 0 0;
+  padding: 16px 0 6px;
   list-style: none;
 }
 
@@ -627,16 +579,16 @@ a.flow-address[data-chip]:hover {
   flex: 1;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding-top: 40px;
+  gap: 10px;
+  padding-top: 24px;
   text-align: center;
 }
 
 /* The disc and its mark both come from the artwork, so the seal only has to say
    how big it is and which colour it takes */
 .flow-seal {
-  width: 84px;
-  margin-bottom: 18px;
+  width: 72px;
+  margin-bottom: 12px;
   color: var(--zkp-success);
   /* The ending's one flourish. Nothing else on the screen animates, so a
      dropped or unsupported animation can never leave content invisible. */
@@ -672,7 +624,7 @@ a.flow-address[data-chip]:hover {
 
 .flow-done-title {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--zkp-text-title);
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.015em;
@@ -681,11 +633,12 @@ a.flow-address[data-chip]:hover {
 
 .flow-done-sub {
   margin: 0;
-  padding: 0 4px;
-  font-size: 12.5px;
+  padding: 0;
+  font-size: var(--zkp-text-body);
   line-height: 1.5;
   text-align: center;
   color: var(--zkp-muted);
+  max-width: 320px;
 }
 
 /* The list is the screen, so it takes the room the screen has */
@@ -712,7 +665,7 @@ a.flow-address[data-chip]:hover {
   border-radius: 16px;
   background: var(--zkp-surface);
   color: var(--zkp-fg);
-  font-size: 14.5px;
+  font-size: var(--zkp-text-body);
   font-weight: 500;
   text-align: left;
   transition: background 120ms ease;
@@ -805,17 +758,12 @@ a.flow-address[data-chip]:hover {
   gap: 8px;
 }
 
-.flow-waiting .flow-hint {
-  font-size: 13px;
-  color: var(--zkp-dim);
-}
-
 /* Closing the tab drops the bridge, so the wait comes with a warning */
 .flow-keep-open {
   margin: 0;
-  font-size: 11.5px;
+  font-size: var(--zkp-text-small);
   color: var(--zkp-dim);
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .flow-dots {
@@ -854,20 +802,6 @@ a.flow-address[data-chip]:hover {
   }
 }
 
-/* The card marks its own failure over the dimmed QR; give that mark the same
-   tinted disc the flow's seals use */
-.flow-page .zkp-error-icon {
-  width: 62px;
-  height: 62px;
-  background: color-mix(in srgb, var(--zkp-error) 21%, transparent);
-  color: var(--zkp-error);
-}
-
-.flow-page .zkp-error-icon svg {
-  width: 46%;
-  height: 46%;
-}
-
 /* A revert reason or RPC failure can run long; cap it and let it scroll */
 .flow-detail {
   width: 100%;
@@ -879,7 +813,7 @@ a.flow-address[data-chip]:hover {
   border-radius: 8px;
   background: var(--zkp-surface);
   color: var(--zkp-dim);
-  font-size: 12.5px;
+  font-size: var(--zkp-text-small);
   line-height: 1.5;
   text-align: left;
   overflow-wrap: anywhere;
@@ -899,25 +833,6 @@ a.flow-address[data-chip]:hover {
   }
 }
 
-/* The published sheet marks these !important inside a cascade layer, so joining
-   the layer and out-specifying it is the only way to restyle them. */
-@layer zkpassport {
-  .flow-page .zkp-card .zkp-intro-continue {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 16px 18px !important;
-    border-radius: 16px !important;
-    background: var(--zkp-brand) !important;
-    color: #0a1746 !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0 !important;
-    text-transform: none !important;
-  }
-}
-
 /* ─── Consent ────────────────────────────────────────────────────────────── */
 
 /* The ask and its checks read as one panel, the way the app shows them */
@@ -926,12 +841,21 @@ a.flow-address[data-chip]:hover {
   background: var(--zkp-surface);
 }
 .intro-asks-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin: 0;
   padding: 13px 16px;
   border-bottom: 1px solid var(--zkp-border);
-  font-size: 12.5px;
+  font-size: var(--zkp-text-small);
   font-weight: 500;
   color: var(--zkp-muted);
+}
+.intro-asks-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: contain;
 }
 .intro-list {
   margin: 0;
@@ -976,7 +900,7 @@ a.flow-address[data-chip]:hover {
   gap: 5px;
 }
 .intro-ask-title {
-  font-size: 13px;
+  font-size: var(--zkp-text-body);
   font-weight: 500;
   line-height: 1.35;
   color: var(--zkp-fg);
@@ -987,7 +911,7 @@ a.flow-address[data-chip]:hover {
   padding: 5px 7px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--zkp-fg) 4%, transparent);
-  font-size: 10.5px;
+  font-size: var(--zkp-text-small);
   line-height: 1.5;
   letter-spacing: 0.01em;
   /* A bound wallet address has no spaces to break on */
@@ -1034,7 +958,7 @@ a.flow-address[data-chip]:hover {
 .intro-note-label {
   display: block;
   margin-bottom: 5px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1070,8 +994,7 @@ a.flow-address[data-chip]:hover {
   color: var(--zkp-muted);
 }
 
-/* The chip question and its button sit at the foot, so the checks stay put
-   however many of them there are */
+/* The button sits at the foot, so the checks stay put however many of them there are */
 .intro-chip {
   display: flex;
   flex-direction: column;
@@ -1080,38 +1003,6 @@ a.flow-address[data-chip]:hover {
   gap: 8px;
   margin-top: auto;
   padding-top: 16px;
-}
-.intro-chip-mark {
-  width: 38px;
-  margin-bottom: 3px;
-  color: var(--zkp-fg);
-}
-.intro-chip-mark svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.intro-chip-question {
-  margin: 0;
-  font-size: 14.5px;
-  font-weight: 600;
-  color: var(--zkp-fg);
-}
-.intro-chip-hint {
-  margin: 0;
-  margin-bottom: 10px;
-  margin-inline: auto;
-  padding: 0 12px;
-  font-size: 12.5px;
-  color: var(--zkp-dim);
-}
-.intro-privacy {
-  margin: 0;
-  padding: 0 10px;
-  font-size: 12px;
-  line-height: 1.55;
-  text-align: center;
-  color: var(--zkp-dim, var(--zkp-muted));
 }
 
 .flow-primary {
@@ -1124,29 +1015,80 @@ a.flow-address[data-chip]:hover {
   gap: 8px;
   width: 100%;
   margin-top: 4px;
-  padding: 16px 18px;
-  border: none;
-  border-radius: 16px;
+  padding: 14px 18px;
+  border: 1px solid transparent;
   background: var(--zkp-brand);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   color: #0a1746;
-  font-family: inherit;
+  /* The Verify with ZKPassport button's corner and type, so the two read as one
+     control */
+  border-radius: 8px;
   font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1.2;
   text-align: center;
   text-wrap: balance;
   cursor: pointer;
-  transition: filter 150ms ease;
+  transition:
+    filter 150ms ease,
+    transform 100ms ease;
 }
 .flow-primary:hover {
   filter: brightness(1.05);
 }
+.flow-primary:active:not(:disabled) {
+  transform: scale(0.98);
+  filter: brightness(0.95);
+}
+.flow-primary:focus-visible,
+.flow-secondary:focus-visible {
+  outline: 2px solid var(--zkp-brand);
+  outline-offset: 2px;
+}
+.flow-primary .flow-glyph[data-after] {
+  margin-left: 0;
+  opacity: 1;
+  transition: transform 150ms ease;
+}
+.flow-primary:hover:not(:disabled) .flow-glyph[data-after] {
+  transform: translateX(2px);
+}
 .flow-primary:disabled {
   background: var(--zkp-surface);
+  box-shadow: none;
   color: var(--zkp-muted);
   cursor: default;
   filter: none;
+}
+
+.flow-secondary {
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--zkp-border);
+  background: none;
+  color: var(--zkp-fg);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    transform 100ms ease;
+  letter-spacing: 0;
+  margin-top: 4px;
+}
+.flow-secondary:hover {
+  background: var(--zkp-surface);
+}
+.flow-secondary:active {
+  transform: scale(0.98);
 }
 
 /* ─── The QR ─────────────────────────────────────────────────────────────── */
@@ -1157,7 +1099,7 @@ a.flow-address[data-chip]:hover {
      and overflow: hidden would crop the bottom rows off the code */
   flex: none;
   align-self: center;
-  height: min(360px, 56vh);
+  height: min(340px, 48vh);
   width: auto;
   max-width: 100%;
   aspect-ratio: 1;
@@ -1224,6 +1166,7 @@ a.flow-address[data-chip]:hover {
   flex-direction: column;
   align-items: stretch;
   gap: 16px;
+  margin-top: auto;
   padding: 12px 0 6px;
 }
 /* Nothing opened: installing leads, and opening the app steps back to a secondary action the user
@@ -1237,6 +1180,7 @@ a.flow-address[data-chip]:hover {
   background: var(--zkp-surface);
   border-color: var(--zkp-brand);
   box-shadow: 0 0 0 1px var(--zkp-brand);
+  padding: 16px;
 }
 .scan-reveal {
   appearance: none;
@@ -1244,7 +1188,7 @@ a.flow-address[data-chip]:hover {
   background: none;
   padding: 4px;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--zkp-text-small);
   color: var(--zkp-muted);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1268,24 +1212,12 @@ a.flow-primary {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--zkp-border);
+  padding: 0;
+  border: 1px solid transparent;
   border-radius: 12px;
   transition:
     background 200ms ease,
     border-color 200ms ease;
-}
-.scan-install-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-.scan-install-note {
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--zkp-muted);
 }
 
 .store-badges {
@@ -1300,19 +1232,6 @@ a.flow-primary {
   width: auto;
 }
 
-.r-mark {
-  display: flex;
-  justify-content: center;
-  margin: 0;
-  padding: 4px 12px 0;
-  line-height: 0;
-}
-.r-mark svg {
-  width: 110px;
-  height: auto;
-  display: block;
-}
-
 .r-actions {
   display: flex;
   flex-direction: column;
@@ -1324,8 +1243,100 @@ a.flow-primary {
 .r-note {
   margin: 0;
   max-width: 300px;
-  font-size: 11.5px;
+  font-size: var(--zkp-text-small);
   line-height: 1.5;
   text-align: center;
   color: var(--zkp-dim, var(--zkp-muted));
+}
+
+/* ─── Shared additions ───────────────────────────────────────────────────── */
+
+/* The screen's one privacy promise: full strength, never small print */
+/* Inline, so the lock stays with the first word when the line wraps */
+.flow-lock {
+  display: block;
+  margin: 0;
+  font-size: var(--zkp-text-body);
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--zkp-fg);
+}
+.flow-lock .flow-glyph {
+  margin-right: 0.4em;
+  vertical-align: -0.15em;
+  color: var(--zkp-success);
+}
+
+/* What sits under the QR: the promise, then the quiet way out */
+.scan-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+/* One plain line under an action */
+.scan-sub {
+  margin: 0;
+  font-size: var(--zkp-text-small);
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--zkp-muted);
+}
+
+/* Small print under the ending's action */
+.flow-actions-note {
+  margin: 0;
+  font-size: var(--zkp-text-small);
+  text-align: center;
+  color: var(--zkp-dim);
+}
+
+/* Raw failure text, folded away under the explanation */
+.flow-more {
+  width: 100%;
+  max-width: 340px;
+  margin-top: 6px;
+  text-align: center;
+}
+.flow-more summary {
+  display: inline-block;
+  padding: 4px;
+  font-size: var(--zkp-text-small);
+  color: var(--zkp-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  list-style: none;
+}
+.flow-more summary::-webkit-details-marker {
+  display: none;
+}
+.flow-more .flow-detail {
+  margin-top: 8px;
+}
+
+/* A screen with only something to say, before a flow mounts or after it has gone */
+.flow-notice {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.r-install {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
 }

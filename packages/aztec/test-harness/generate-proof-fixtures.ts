@@ -1,38 +1,55 @@
 /**
- * zkpassport-aztec harness: generate a real ZKPassport `outer_count_4` proof fixture
- * for the bb-level fixture harness (test-harness/test-recursive-verification.sh).
+ * zkpassport-aztec harness: generate a real ZKPassport outer proof fixture.
  *
  * Imports resolve against the `circuits/` submodule (its sources and its node_modules, so
- * the circuits repo's own pinned dep versions are used). Run via generate-proof-fixtures.sh.
+ * the circuits repo's own pinned dep versions are used). The circuits it proves are the release of
+ * the submodule's version, as published on the circuits CDN, so the outer proof commits to that
+ * release's circuit registry root. Run via generate-proof-fixtures.sh.
  */
 import { execSync } from "child_process"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
 import { poseidon2HashAsync } from "./circuits/node_modules/@zkpassport/poseidon2"
-import type { IntegrityToDisclosureSalts, PackagedCertificatesFile, Query } from "./circuits/node_modules/@zkpassport/utils"
+import type { CompiledCircuit } from "./circuits/node_modules/@noir-lang/noir_js"
+import type {
+  CircuitManifest,
+  IntegrityToDisclosureSalts,
+  PackagedCertificatesFile,
+  Query,
+} from "./circuits/node_modules/@zkpassport/utils"
 import {
   Binary,
   calculatePackagedCertificatesRoot,
+  circuitVersionToBytes32,
+  formatBoundData,
+  getAgeCircuitInputs,
+  getBindCircuitInputs,
+  getBindParameterCommitment,
   getCircuitMerkleProof,
   getCommitmentFromDSCProof,
   getCommitmentInFromDisclosureProof,
   getCommitmentInFromIDDataProof,
-  getCommitmentInFromIntegrityProof,
   getCommitmentOutFromIDDataProof,
-  getCommitmentOutFromIntegrityProof,
   getDiscloseCircuitInputs,
   getDiscloseParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
+  getAgeParameterCommitment,
   getMerkleRootFromDSCProof,
   getOuterCircuitInputs,
   getParameterCommitmentFromDisclosureProof,
+  getServiceScopeHash,
 } from "./circuits/node_modules/@zkpassport/utils"
 import { AlgorithmIdentifier } from "./circuits/node_modules/@peculiar/asn1-x509"
 import { id_sha256WithRSAEncryption } from "./circuits/node_modules/@peculiar/asn1-rsa"
 import { Circuit } from "./circuits/src/ts/circuits"
-import { generateSigningCertificates, loadKeypairFromFile, signSod } from "./circuits/src/ts/passport-generator"
-import { generateSod, wrapSodInContentInfo } from "./circuits/src/ts/sod-generator"
+import {
+  generateSigningCertificates,
+  generateSod,
+  loadKeypairFromFile,
+  signSod,
+  wrapSodInContentInfo,
+} from "./circuits/node_modules/@zkpassport/utils/dist/esm/passport-generator"
 import { TestHelper, convertPemToPackagedCertificateV1 } from "./circuits/src/ts/test-helper"
 import { serializeAsn } from "./circuits/src/ts/utils"
 
@@ -44,6 +61,34 @@ const hex = (v: bigint) => `0x${v.toString(16).padStart(64, "0")}`
 
 const FIXTURE_OUT = process.env.FIXTURE_OUT as string
 if (!FIXTURE_OUT) throw new Error("Set FIXTURE_OUT to the output JSON path")
+
+const FIXTURE_KIND = (process.env.FIXTURE_KIND ?? "disclose") as "disclose" | "age"
+if (FIXTURE_KIND !== "disclose" && FIXTURE_KIND !== "age") {
+  throw new Error(`FIXTURE_KIND must be 'disclose' or 'age', got '${FIXTURE_KIND}'`)
+}
+
+const AGE_MIN = 18
+const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
+
+// The address the age proof is bound to (the bind subproof's user_address). Must equal the
+// BIND_ACCOUNT anchor in fixtures.nr.
+const BIND_ADDRESS = "0x1122334455667788990011223344556677889900112233445566778899001122"
+
+// The chain the age proof is bound to: a local network started with Aztec 6.0.0's
+// `aztec start --local-network`, whose chain id is the rollup version its contracts read from their
+// context. The local-network e2e in zkpassport/aztec-examples verifies the fixture there.
+const BIND_CHAIN_ID = 1685378643
+
+// The domain the age proof is made for, since verify_zkpassport_proof requires one. The disclose
+// fixture has none (0), the scope the core tests and the bb harness verify it with.
+const SERVICE_DOMAIN = "example.com"
+
+// Sepolia's circuits CDN, which gets each circuits release first
+const CIRCUITS_CDN_URL = "https://circuits2.zkpassport.id/testnet"
+
+const CIRCUIT_VERSION: string = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "circuits/package.json"), "utf8"),
+).version
 
 const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
@@ -59,6 +104,10 @@ const MAX_TBS_LENGTH = 700
 // deliberately future-dated (2050-01-01). That way downstream consumers that enforce freshness
 // can be tested.
 const nowTimestamp = Number(process.env.FIXTURE_NOW ?? 2524608000) // 2050-01-01T00:00:00Z
+
+// VERIFICATION_METHOD_ICAO_CHIP in the circuits repo's utils lib, the only method the Aztec library
+// accepts
+const VERIFICATION_METHOD_ICAO_CHIP = 100n
 
 // Blinding salts for the integrity -> disclosure commitment chain: both stages must hash the
 // carried passport data with the same salts. Any fixed value works for a deterministic
@@ -78,11 +127,38 @@ type Subproof = {
   paramCommitment?: bigint
 }
 
+type PackagedCircuit = CompiledCircuit & { name: string }
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`GET ${url}: ${response.status} ${response.statusText}`)
+  return (await response.json()) as T
+}
+
+async function fetchCircuitManifest(): Promise<CircuitManifest> {
+  const manifest = await fetchJson<CircuitManifest>(
+    `${CIRCUITS_CDN_URL}/by-version/${CIRCUIT_VERSION}/manifest.json`,
+  )
+  assert(manifest.version === CIRCUIT_VERSION, `manifest version == ${CIRCUIT_VERSION} (got ${manifest.version})`)
+  return manifest
+}
+
+async function fetchPackagedCircuit(circuitName: string, manifest: CircuitManifest): Promise<PackagedCircuit> {
+  const hash = manifest.circuits[circuitName]?.hash
+  assert(!!hash, `${circuitName} is in the ${manifest.version} manifest`)
+
+  log(`fetching ${circuitName} ${hash} ...`)
+  const packaged = await fetchJson<PackagedCircuit>(`${CIRCUITS_CDN_URL}/by-hash/${hash}.json`)
+  assert(packaged.name === circuitName, `packaged circuit ${hash} is ${circuitName} (got ${packaged.name})`)
+  return packaged
+}
+
 async function proveSubproof(
   circuitName: string,
   inputs: unknown,
+  manifest: CircuitManifest,
 ): Promise<{ circuit: Circuit; proof: { proof: string[]; publicInputs: string[] }; vkey: string[]; vkeyHash: string }> {
-  const circuit = Circuit.from(circuitName)
+  const circuit = new Circuit(await fetchPackagedCircuit(circuitName, manifest), circuitName)
 
   log(`proving ${circuitName} ...`)
   const proof = await circuit.prove(inputs as any, {
@@ -97,6 +173,7 @@ async function proveSubproof(
   const vkeyHash = `0x${(await poseidon2HashAsync(vkey.map((x) => BigInt(x)))).toString(16).padStart(64, "0")}`
 
   log(`${circuitName}: proof=${proof.proof.length} fields, publicInputs=${proof.publicInputs.length}, vk=${vkey.length} fields, vkHash=${vkeyHash}`)
+  assert(vkeyHash === manifest.circuits[circuitName].hash, `${circuitName} vk hash == the manifest's`)
   return { circuit, proof, vkey, vkeyHash }
 }
 
@@ -110,6 +187,7 @@ type DisclosureStage = {
 async function proveDisclosureStage(
   helper: TestHelper,
   integrityToDisclosureCommitment: bigint,
+  manifest: CircuitManifest,
 ): Promise<DisclosureStage> {
   const name = "disclose_bytes"
 
@@ -143,7 +221,7 @@ async function proveDisclosureStage(
   assert(discloseMask.length === 90, `disclose_mask length == 90 (got ${discloseMask.length})`)
   assert(disclosedBytes.length === 90, `disclosedBytes length == 90 (got ${disclosedBytes.length})`)
 
-  const discloseR = await proveSubproof(name, discloseInputs)
+  const discloseR = await proveSubproof(name, discloseInputs, manifest)
   const paramCommitment = getParameterCommitmentFromDisclosureProof(discloseR.proof)
 
   // Cross-stack check: the mask/bytes we emit must reproduce the proof's commitment.
@@ -172,9 +250,131 @@ async function proveDisclosureStage(
   }
 }
 
+// 4th subproof, age variant: an 18+ compare_age check instead of a byte disclosure.
+async function proveAgeStage(
+  helper: TestHelper,
+  integrityToDisclosureCommitment: bigint,
+  manifest: CircuitManifest,
+): Promise<DisclosureStage> {
+  const name = "compare_age"
+
+  const ageQuery: Query = { age: { gte: AGE_MIN } }
+  const ageInputs = await getAgeCircuitInputs(
+    helper.passport as any,
+    ageQuery,
+    INTEGRITY_TO_DISCLOSURE_SALTS,
+    0n,
+    getServiceScopeHash(SERVICE_DOMAIN),
+    0n,
+    nowTimestamp,
+  )
+  assert(!!ageInputs, "age inputs generated")
+
+  const minAge = Number(ageInputs.min_age_required)
+  const maxAge = Number(ageInputs.max_age_required)
+  assert(minAge === AGE_MIN, `min_age_required == ${AGE_MIN} (got ${minAge})`)
+  assert(maxAge === AGE_MAX, `max_age_required == ${AGE_MAX} (got ${maxAge})`)
+
+  const ageR = await proveSubproof(name, ageInputs, manifest)
+  const paramCommitment = getParameterCommitmentFromDisclosureProof(ageR.proof)
+
+  const recomputed = await getAgeParameterCommitment(minAge, maxAge)
+  assert(recomputed === paramCommitment, "emitted min/max age reproduce the age param commitment")
+
+  const commitmentIn = getCommitmentInFromDisclosureProof(ageR.proof)
+  assert(commitmentIn === integrityToDisclosureCommitment, "age commitment_in == integrity commitment_out")
+
+  await ageR.circuit.destroy()
+
+  return {
+    name,
+    subproof: {
+      proof: ageR.proof.proof,
+      publicInputs: ageR.proof.publicInputs,
+      vkey: ageR.vkey,
+      vkeyHash: ageR.vkeyHash,
+      paramCommitment,
+    },
+    extras: {
+      ageParamCommitment: hex(paramCommitment),
+      ageMinAge: minAge,
+      ageMaxAge: maxAge,
+    },
+  }
+}
+
+// 5th subproof: binds the proof to BIND_ADDRESS on the local network, so an app's
+// bind_user_address(user) accepts it there instead of trusting the capsule bearer.
+async function proveBindStage(
+  helper: TestHelper,
+  integrityToDisclosureCommitment: bigint,
+  manifest: CircuitManifest,
+): Promise<DisclosureStage> {
+  const name = "bind"
+
+  const bindQuery: Query = { bind: { user_address: BIND_ADDRESS } }
+  const bindInputs = await getBindCircuitInputs(
+    helper.passport as any,
+    bindQuery,
+    INTEGRITY_TO_DISCLOSURE_SALTS,
+    0n,
+    getServiceScopeHash(SERVICE_DOMAIN),
+    0n,
+    nowTimestamp,
+  )
+  assert(!!bindInputs, "bind inputs generated")
+
+  // The circuits submodule's @zkpassport/utils has no name for a local Aztec network, so the
+  // chain id entry is written here, as formatBoundData writes one for a named chain.
+  const chainIdBytes = minimalBytesBE(BIND_CHAIN_ID)
+  const boundData = [
+    ...formatBoundData({ user_address: BIND_ADDRESS }),
+    2, // CHAIN_ID
+    0,
+    chainIdBytes.length,
+    ...chainIdBytes,
+  ]
+  bindInputs.data = [...boundData, ...Array(509 - boundData.length).fill(0)]
+
+  const bindR = await proveSubproof(name, bindInputs, manifest)
+  const paramCommitment = getParameterCommitmentFromDisclosureProof(bindR.proof)
+
+  const recomputed = await getBindParameterCommitment(boundData)
+  assert(recomputed === paramCommitment, "the bound data reproduces the bind param commitment")
+
+  const commitmentIn = getCommitmentInFromDisclosureProof(bindR.proof)
+  assert(commitmentIn === integrityToDisclosureCommitment, "bind commitment_in == integrity commitment_out")
+
+  await bindR.circuit.destroy()
+
+  return {
+    name,
+    subproof: {
+      proof: bindR.proof.proof,
+      publicInputs: bindR.proof.publicInputs,
+      vkey: bindR.vkey,
+      vkeyHash: bindR.vkeyHash,
+      paramCommitment,
+    },
+    extras: {
+      bindParamCommitment: hex(paramCommitment),
+      bindAddress: BIND_ADDRESS,
+      bindChainId: BIND_CHAIN_ID,
+    },
+  }
+}
+
+// The bytes of a number, big-endian, with no leading zero bytes, as formatBoundData writes a chain id
+function minimalBytesBE(value: number): number[] {
+  const digits = value.toString(16)
+  return Array.from(Buffer.from(digits.length % 2 ? "0" + digits : digits, "hex"))
+}
+
 async function main() {
   const bbVersion = execSync("bb --version").toString().trim().split("\n").pop()
-  log(`bb on PATH: ${bbVersion}`)
+  log(`bb on PATH: ${bbVersion}, FIXTURE_KIND=${FIXTURE_KIND}, circuits ${CIRCUIT_VERSION}`)
+
+  const manifest = await fetchCircuitManifest()
 
   // ---- Passport + certificate setup (verbatim from outer.test.ts beforeEach) ----
   const helper = new TestHelper()
@@ -222,7 +422,7 @@ async function main() {
 
   const dscName = `sig_check_dsc_tbs_${MAX_TBS_LENGTH}_rsa_pkcs_4096_sha512`
   const dscInputs = await helper.generateCircuitInputs("dsc")
-  const dscR = await proveSubproof(dscName, dscInputs)
+  const dscR = await proveSubproof(dscName, dscInputs, manifest)
   assert(dscR.proof.publicInputs.length === 2, "dsc publicInputs length == 2")
 
   const certificateRegistryRoot = getMerkleRootFromDSCProof(dscR.proof)
@@ -232,7 +432,7 @@ async function main() {
 
   const idName = `sig_check_id_data_tbs_${MAX_TBS_LENGTH}_rsa_pkcs_2048_sha256`
   const idInputs = await helper.generateCircuitInputs("id")
-  const idR = await proveSubproof(idName, idInputs)
+  const idR = await proveSubproof(idName, idInputs, manifest)
   const idDataCommitmentIn = getCommitmentInFromIDDataProof(idR.proof)
   const dscToIdDataCommitment = getCommitmentOutFromIDDataProof(idR.proof)
   assert(idDataCommitmentIn === cscToDscCommitment, "id commitment_in == dsc commitment_out")
@@ -241,91 +441,127 @@ async function main() {
 
   const integrityName = "data_check_integrity_sa_sha256_dg_sha256"
   const integrityInputs = await helper.generateCircuitInputs("integrity", nowTimestamp)
-  const integrityR = await proveSubproof(integrityName, integrityInputs)
-  const integrityCommitmentIn = getCommitmentInFromIntegrityProof(integrityR.proof)
-  const integrityToDisclosureCommitment = getCommitmentOutFromIntegrityProof(integrityR.proof)
+  const integrityR = await proveSubproof(integrityName, integrityInputs, manifest)
+  // [comm_in, comm_out, verification_method]. The utils the submodule pins predate the
+  // verification method and read comm_in and comm_out from the end, so they're read directly.
+  assert(integrityR.proof.publicInputs.length === 3, "integrity publicInputs length == 3")
+  const [integrityCommitmentIn, integrityToDisclosureCommitment, verificationMethod] =
+    integrityR.proof.publicInputs.map(BigInt)
   assert(integrityCommitmentIn === dscToIdDataCommitment, "integrity commitment_in == id commitment_out")
+  assert(
+    verificationMethod === VERIFICATION_METHOD_ICAO_CHIP,
+    `integrity verification_method == ${VERIFICATION_METHOD_ICAO_CHIP} (got ${verificationMethod})`,
+  )
   subproofs.set(2, { proof: integrityR.proof.proof, publicInputs: integrityR.proof.publicInputs, vkey: integrityR.vkey, vkeyHash: integrityR.vkeyHash })
   await integrityR.circuit.destroy()
 
-  const disclosure = await proveDisclosureStage(helper, integrityToDisclosureCommitment)
+  const disclosure = FIXTURE_KIND === "disclose"
+    ? await proveDisclosureStage(helper, integrityToDisclosureCommitment, manifest)
+    : await proveAgeStage(helper, integrityToDisclosureCommitment, manifest)
   subproofs.set(3, disclosure.subproof)
 
-  // ---- Local circuit manifest (registry tree over our 4 local vkey hashes) ----
-  // The 4th leaf is whichever disclosure circuit this variant used, otherwise the outer
-  // circuit's membership proof for it would not verify.
-  const localManifest: any = {
-    version: "local-harness-disclose",
-    root: "",
-    circuits: {
-      [dscName]: { hash: subproofs.get(0)!.vkeyHash },
-      [idName]: { hash: subproofs.get(1)!.vkeyHash },
-      [integrityName]: { hash: subproofs.get(2)!.vkeyHash },
-      [disclosure.name]: { hash: subproofs.get(3)!.vkeyHash },
-    },
-  }
+  const bind = FIXTURE_KIND === "age"
+    ? await proveBindStage(helper, integrityToDisclosureCommitment, manifest)
+    : undefined
+  if (bind) subproofs.set(4, bind.subproof)
 
-  const mp0 = await getCircuitMerkleProof(subproofs.get(0)!.vkeyHash, localManifest)
-  localManifest.root = mp0.root
-  const mp1 = await getCircuitMerkleProof(subproofs.get(1)!.vkeyHash, localManifest)
-  const mp2 = await getCircuitMerkleProof(subproofs.get(2)!.vkeyHash, localManifest)
-  const mp3 = await getCircuitMerkleProof(subproofs.get(3)!.vkeyHash, localManifest)
-  log(`local circuit registry root: ${localManifest.root}`)
+  const outerName = bind ? "outer_count_5" : "outer_count_4"
+
+  // ---- Membership proofs in the release's circuit registry tree ----
+  const mp0 = await getCircuitMerkleProof(subproofs.get(0)!.vkeyHash, manifest)
+  assert(BigInt(mp0.root) === BigInt(manifest.root), `the manifest's circuits hash to its root ${manifest.root} (got ${mp0.root})`)
+  const mp1 = await getCircuitMerkleProof(subproofs.get(1)!.vkeyHash, manifest)
+  const mp2 = await getCircuitMerkleProof(subproofs.get(2)!.vkeyHash, manifest)
+  const mp3 = await getCircuitMerkleProof(subproofs.get(3)!.vkeyHash, manifest)
+  const mp4 = bind ? await getCircuitMerkleProof(subproofs.get(4)!.vkeyHash, manifest) : undefined
+  log(`circuit registry root of ${CIRCUIT_VERSION}: ${manifest.root}`)
 
   // ---- Outer proof ----
-  const outerInputs = await getOuterCircuitInputs(
+  const outerCircuitInputs = await getOuterCircuitInputs(
     { ...toSubproofInput(subproofs.get(0)!, mp0) },
     { ...toSubproofInput(subproofs.get(1)!, mp1) },
     { ...toSubproofInput(subproofs.get(2)!, mp2) },
-    [{ ...toSubproofInput(subproofs.get(3)!, mp3) }],
-    localManifest.root,
+    [
+      { ...toSubproofInput(subproofs.get(3)!, mp3) },
+      ...(bind ? [{ ...toSubproofInput(subproofs.get(4)!, mp4!) }] : []),
+    ],
+    manifest.root,
   )
+  // The outer circuit also takes the integrity proof's verification method, which these utils
+  // don't fill in
+  const outerInputs = {
+    ...outerCircuitInputs,
+    verification_method: integrityR.proof.publicInputs[2],
+  }
 
-  const outerCircuit = Circuit.from("outer_count_4")
-  log("proving outer_count_4 ...")
+  const outerPackaged = await fetchPackagedCircuit(outerName, manifest)
+  const outerCircuit = new Circuit(outerPackaged, outerName)
+  log(`proving ${outerName} ...`)
 
   const outerProof = await outerCircuit.prove(outerInputs, {
     useCli: true,
-    circuitName: "outer_count_4",
+    circuitName: outerName,
     recursive: true,
   })
   const outerVkey = (await outerCircuit.getVerificationKey({ evm: false })).vkeyFields
   const outerVkeyHashPoseidon = `0x${(await poseidon2HashAsync(outerVkey.map((x) => BigInt(x)))).toString(16).padStart(64, "0")}`
   await outerCircuit.destroy()
 
-  // bb's own vk_hash for outer_count_4 (this is what verify_proof_with_type checks against)
+  // bb's own vk_hash for the outer circuit (this is what verify_proof_with_type checks against)
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "outer-vk-"))
-  execSync(`bb write_vk -t noir-recursive -b target/outer_count_4.json -o ${tmp}`)
+  fs.writeFileSync(path.join(tmp, "circuit.json"), JSON.stringify(outerPackaged))
+  execSync(`bb write_vk -t noir-recursive -b ${path.join(tmp, "circuit.json")} -o ${tmp}`)
   const outerVkeyHashBB = `0x${fs.readFileSync(path.join(tmp, "vk_hash")).toString("hex")}`
   fs.rmSync(tmp, { recursive: true, force: true })
 
   log(`outer proof: ${outerProof.proof.length} fields, publicInputs: ${outerProof.publicInputs.length}`)
   log(`outer vk: ${outerVkey.length} fields, poseidon2(vk)=${outerVkeyHashPoseidon}, bb vk_hash=${outerVkeyHashBB}`)
+  assert(outerVkeyHashPoseidon === manifest.circuits[outerName].hash, `${outerName} vk hash == the manifest's`)
 
   const paramCommitment = subproofs.get(3)!.paramCommitment
   assert(paramCommitment !== undefined, "disclosure param commitment present")
 
   // The outer proof's public inputs are [certRoot, circuitRoot, currentDate, scope, subscope,
-  // paramCommitment..., nullifierType, scopedNullifier, oprfPkHash] -- slot 5 for count_4.
+  // paramCommitments..., nullifierType, scopedNullifier, oprfPkHash, verificationMethod] -- one
+  // commitment slot per disclosure subproof, starting at slot 5. The prover does not fix the slot
+  // order, so compare as a set.
+  const expectedParams = new Set([paramCommitment!, ...(bind ? [bind.subproof.paramCommitment!] : [])])
+  const proofParams = new Set(
+    outerProof.publicInputs.slice(5, 5 + expectedParams.size).map(BigInt),
+  )
   assert(
-    BigInt(outerProof.publicInputs[5]) === paramCommitment,
-    "outer publicInputs[5] == disclosure param commitment",
+    proofParams.size === expectedParams.size &&
+      [...expectedParams].every((c) => proofParams.has(c)),
+    "outer param commitment slots == the disclosure/bind param commitments",
+  )
+  const outerCount = bind ? 5 : 4
+  assert(
+    outerProof.publicInputs.length === outerCount + 6,
+    `outer publicInputs length == ${outerCount + 6} (got ${outerProof.publicInputs.length})`,
+  )
+  assert(
+    BigInt(outerProof.publicInputs[outerCount + 5]) === VERIFICATION_METHOD_ICAO_CHIP,
+    "the outer proof's last public input is the ICAO chip verification method",
   )
 
   const fixture = {
     generator: "test-harness/generate-proof-fixtures.ts (zkpassport-aztec)",
-    kind: "disclose",
+    kind: FIXTURE_KIND,
     disclosureCircuit: disclosure.name,
     bbVersion,
     // cwd is the circuits submodule (set by generate-proof-fixtures.sh), so this records the
     // circuits commit the proof was built from; fixture-conformance.test.ts holds it to the pin.
     circuitsCommit: execSync("git rev-parse HEAD").toString().trim(),
-    circuit: "outer_count_4",
+    circuitVersion: CIRCUIT_VERSION,
+    // The version as the registry keys vks and the proof capsule carries it
+    circuitVersionPacked: circuitVersionToBytes32(CIRCUIT_VERSION),
+    circuit: outerName,
     nowTimestamp,
     certificateRegistryRoot: hex(certificateRegistryRoot),
-    circuitRegistryRoot: localManifest.root,
+    circuitRegistryRoot: manifest.root,
     paramCommitment: hex(paramCommitment!),
     ...disclosure.extras,
+    ...(bind?.extras ?? {}),
     vkeyFields: outerVkey,
     vkeyHashPoseidon2: outerVkeyHashPoseidon,
     vkeyHashBB: outerVkeyHashBB,
@@ -335,6 +571,17 @@ async function main() {
   fs.mkdirSync(path.dirname(FIXTURE_OUT), { recursive: true })
   fs.writeFileSync(FIXTURE_OUT, JSON.stringify(fixture, null, 2))
   log(`fixture written to ${FIXTURE_OUT}`)
+
+  // The age fixture also becomes the Noir-side source of truth for consumers' TXE tests
+  // (the disclose fixture is consumed by test-recursive-verification.sh straight from the JSON).
+  if (FIXTURE_KIND === "age") {
+    const proofNr = new URL(
+      "../noir/core/src/fixtures/proof.nr",
+      import.meta.url,
+    ).pathname
+    emitProofGlobals(fixture, proofNr)
+    log(`proof globals written to ${proofNr} -- run aztec-nargo fmt over noir/`)
+  }
 }
 
 function toSubproofInput(
@@ -349,6 +596,49 @@ function toSubproofInput(
     treeHashPath: mp.path,
     treeIndex: mp.index.toString(),
   }
+}
+
+// Emits core/src/fixtures/proof.nr, replacing it wholesale.
+function emitProofGlobals(
+  fx: {
+    circuit: string
+    circuitVersion: string
+    circuitVersionPacked: string
+    vkeyFields: string[]
+    proof: string[]
+    publicInputs: string[]
+    certificateRegistryRoot: string
+    circuitRegistryRoot: string
+    vkeyHashBB: string
+    nowTimestamp: number
+    bindAddress?: string
+    bindChainId?: number
+  },
+  outPath: string,
+) {
+  // The proof capsule's layout: vk ‖ proof ‖ public inputs ‖ circuit version
+  const blob = [...fx.vkeyFields, ...fx.proof, ...fx.publicInputs, fx.circuitVersionPacked]
+
+  const arr = (name: string, values: string[]) =>
+    `pub global ${name}: [Field; ${values.length}] = [\n    ${values.join(",\n    ")},\n];\n`
+
+  fs.writeFileSync(
+    outPath,
+    `//! Proof-fixture globals: a real ${fx.circuit} proof capsule (vk ‖ proof ‖ public inputs ‖\n` +
+      `//! circuit version, circuits ${fx.circuitVersion}) plus the registry roots, vk hash,\n` +
+      "//! timestamp, and bound address and chain it was produced under, for\n" +
+      "//! consumers' TXE tests. Source of truth on the Noir side; fixture-conformance.test.ts\n" +
+      "//! checks the checked-in age fixture JSON agrees. Regenerated by\n" +
+      "//! test-harness/generate-proof-fixtures.sh on a capture.\n" +
+      arr("AGE_FIXTURE_BLOB", blob) +
+      `pub global AGE_FIXTURE_CERT_ROOT: Field = ${fx.certificateRegistryRoot};\n` +
+      `pub global AGE_FIXTURE_CIRCUIT_ROOT: Field = ${fx.circuitRegistryRoot};\n` +
+      `pub global AGE_FIXTURE_VK_HASH: Field = ${fx.vkeyHashBB};\n` +
+      `pub global AGE_FIXTURE_CIRCUIT_VERSION: Field = ${fx.circuitVersionPacked};\n` +
+      `pub global AGE_FIXTURE_CURRENT_DATE: u64 = ${fx.nowTimestamp};\n` +
+      `pub global AGE_FIXTURE_BIND_ADDRESS: Field = ${fx.bindAddress};\n` +
+      `pub global AGE_FIXTURE_BIND_CHAIN_ID: Field = ${fx.bindChainId};\n`,
+  )
 }
 
 main().then(

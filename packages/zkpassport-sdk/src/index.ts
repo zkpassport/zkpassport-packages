@@ -4,6 +4,7 @@ import {
   type IDCredentialValue,
   type NumericalIDCredential,
   type ProofResult,
+  type AztecVerifierParameters,
   type QueryResult,
   type CountryName,
   type JsonRpcRequest,
@@ -22,6 +23,12 @@ import {
   getCircuitRegistryRootFromOuterProof,
   formatQueryResultDates,
   getChainFromQuery,
+  VerificationMethod,
+  VerificationTier,
+  serializeAllowedVerificationMethods,
+  isCircuitVersion,
+  isVerificationMethodAllowed,
+  type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
@@ -48,8 +55,9 @@ import {
   numericalCompare,
   rangeCompare,
 } from "./offline-query"
-import { PublicInputChecker } from "./public-input-checker"
+import { PublicInputChecker, withDocumentType } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
+import { AztecVerifier, type AztecNetwork } from "./aztec-verifier"
 import { submitProof } from "./dashboard-api"
 import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
@@ -64,6 +72,41 @@ if (typeof globalThis.Buffer === "undefined") {
 }
 
 const DEFAULT_PURPOSE = "Verify identity privately"
+const BRIDGE_CONNECT_TIMEOUT_MS = 10_000
+
+/** Resolves once the bridge connection is open, or after the timeout if it never opens */
+function waitForBridgeConnection(bridge: BridgeInterface, timeoutMs: number): Promise<void> {
+  if (bridge.isBridgeConnected()) return Promise.resolve()
+  return new Promise((resolve) => {
+    const settle = () => {
+      clearTimeout(timer)
+      unsubscribe.forEach((stop) => stop())
+      resolve()
+    }
+    const timer = setTimeout(settle, timeoutMs)
+    const unsubscribe = [bridge.onConnect(settle), bridge.onFailedToConnect(settle)]
+  })
+}
+
+type RegistryClientOptions = NonNullable<Parameters<typeof createRegistryClient>[1]>
+
+/** The registry client overrides a {@link VerificationConfig} asks for */
+export function getRegistryClientOptions(
+  config: VerificationConfig | undefined,
+): RegistryClientOptions {
+  if (!config) return {}
+  const { circuitsUrl, ...options } = config
+  if (!circuitsUrl) return options
+  const base = circuitsUrl.replace(/\/+$/, "")
+  return {
+    ...options,
+    circuitManifestUrlGenerator: (_chainId, { root, version }) =>
+      root
+        ? `${base}/by-root/${root}/manifest.json`
+        : `${base}/by-version/${version}/manifest.json`,
+    packagedCircuitUrlGenerator: (_chainId, hash) => `${base}/by-hash/${hash}.json`,
+  }
+}
 
 function realNullifierType({
   uniqueIdentifier,
@@ -75,6 +118,27 @@ function realNullifierType({
     return uniqueIdentifier === undefined ? NullifierType.NONE : NullifierType.NON_SALTED
   }
   return uniqueIdentifierType
+}
+
+/**
+ * Applies the service's credential policy to a result, whichever verifier gave it: the hosted
+ * verifier checks proofs under the default policy, not the service's. A result without a scheme
+ * comes from a verifier that predates it, which only knew chip reads.
+ */
+function enforceVerificationMethodPolicy(
+  result: VerificationResult,
+  allowedVerificationMethods: AllowedVerificationMethod[] | undefined,
+): VerificationResult {
+  if (!result.verified) return result
+  const scheme = result.verificationMethod ?? VerificationMethod.ICAO_CHIP
+  if (isVerificationMethodAllowed(scheme, allowedVerificationMethods)) return result
+  console.warn(`The verification method ${scheme} is not one the service accepts`)
+  return {
+    ...result,
+    verified: false,
+    uniqueIdentifier: undefined,
+    uniqueIdentifierType: undefined,
+  }
 }
 
 function enforceUniqueIdentifierType(
@@ -128,6 +192,8 @@ export {
   ProofTypeLength,
   NullifierType,
   type ProofResult,
+  type AztecCapsule,
+  type AztecVerifierParameters,
   type DisclosableIDCredential,
   type IDCredential,
   type IDCredentialValue,
@@ -143,10 +209,18 @@ export {
   type ProofMode,
   type BoundData,
   type Service,
+  VerificationMethod,
+  VerificationTier,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  getTierForVerificationMethod,
+  isVerificationMethodAllowed,
+  expandAllowedVerificationMethods,
+  type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 
 export * from "./types"
 export { createOfflineQuery, normalizeCountry } from "./offline-query"
+export type { AztecNetwork } from "./aztec-verifier"
 export type { KeyPair } from "@obsidion/bridge"
 export { VERSION } from "./constants"
 
@@ -174,7 +248,7 @@ export class ZKPassport {
       returnDeepLink: string | undefined
       verifierMode: VerifierMode | undefined
       config: VerificationConfig | undefined
-      appClip: boolean
+      allowedVerificationMethods: AllowedVerificationMethod[] | undefined
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -206,6 +280,7 @@ export class ZKPassport {
         uniqueIdentifier: string | undefined
         uniqueIdentifierType: NullifierType | undefined
         verified: boolean
+        verificationMethod?: VerificationMethod
         result: QueryResult
         queryResultErrors?: Partial<QueryResultErrors>
         proofs: ProofResult[]
@@ -307,13 +382,20 @@ export class ZKPassport {
         uniqueIdentifierType: this.topicToLocalConfig[topic]?.uniqueIdentifierType,
         verifierMode: this.topicToLocalConfig[topic]?.verifierMode,
         config: this.topicToLocalConfig[topic]?.config,
+        allowedVerificationMethods: this.topicToLocalConfig[topic]?.allowedVerificationMethods,
       })
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       await Promise.all(this.onErrorCallbacks[topic].map((callback) => callback(message)))
       return
     }
-    const { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors } = verification
+    const {
+      uniqueIdentifier,
+      uniqueIdentifierType,
+      verified,
+      queryResultErrors,
+      verificationMethod,
+    } = verification
     logger.debug("Verification complete, verified:", verified)
     await Promise.all(
       this.onResultCallbacks[topic].map((callback) =>
@@ -323,6 +405,7 @@ export class ZKPassport {
           uniqueIdentifier: hasFailedProofs ? undefined : uniqueIdentifier,
           uniqueIdentifierType: hasFailedProofs ? undefined : uniqueIdentifierType,
           verified: hasFailedProofs ? false : verified,
+          verificationMethod,
           result,
           queryResultErrors,
           proofs,
@@ -488,7 +571,7 @@ export class ZKPassport {
       sanctions: (
         countries: SanctionsCountries = "all",
         lists: SanctionsLists = "all",
-        options: { strict?: boolean } = { strict: false },
+        options: { strict?: boolean } = { strict: true },
       ) => {
         this.assertNotPolicyLocked(topic, "sanctions")
         this.topicToConfig[topic].sanctions = {
@@ -513,7 +596,7 @@ export class ZKPassport {
               : Array.isArray(lists)
                 ? [...(this.topicToConfig[topic].sanctions?.lists ?? []), ...lists]
                 : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],*/
-          strict: options.strict ?? false,
+          strict: options.strict ?? true,
         }
         return this.getZkPassportRequest(topic)
       },
@@ -570,6 +653,8 @@ export class ZKPassport {
       },
       done: (() => {
         this.topicToFailedProofCount[topic] = 0
+        // Expose document_type if any fields are disclosed
+        this.topicToConfig[topic] = withDocumentType(this.topicToConfig[topic])
         if (topic === "offline-query") {
           const query = this.topicToConfig[topic]
           delete this.topicToConfig[topic]
@@ -623,6 +708,7 @@ export class ZKPassport {
               uniqueIdentifier: string | undefined
               uniqueIdentifierType: NullifierType | undefined
               verified: boolean
+              verificationMethod?: VerificationMethod
               result: QueryResult
               queryResultErrors?: Partial<QueryResultErrors>
               proofs: ProofResult[]
@@ -731,6 +817,9 @@ export class ZKPassport {
    * @param keyPairOverride A keypair from {@link getRequestKeyPair}, which keeps the request ID and bridge topic.
    * @param replayMissedMessages Redelivers what was already sent on this topic, for a request resumed on a new page.
    * @param config Settings for verifying the received proofs, see {@link VerificationConfig}.
+   * @param allowedVerificationMethods The credentials your service accepts: tiers and/or exact schemes,
+   * see {@link AllowedVerificationMethod}. Defaults to signed credentials only (tier 1); an ID verified
+   * another way is refused by the app before proving and by `verify()` after.
    * @returns The query builder object.
    */
   public async request({
@@ -752,7 +841,7 @@ export class ZKPassport {
     returnDeepLink,
     verifierMode,
     config,
-    overrides,
+    allowedVerificationMethods,
   }: {
     name?: string
     logo?: string
@@ -772,11 +861,13 @@ export class ZKPassport {
     returnDeepLink?: string
     verifierMode?: VerifierMode
     config?: VerificationConfig
-    overrides?: { appClip?: boolean }
+    allowedVerificationMethods?: AllowedVerificationMethod[]
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
+    // Rejects unknown entries now rather than in the app
+    if (allowedVerificationMethods) serializeAllowedVerificationMethods(allowedVerificationMethods)
 
     if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
       throw new Error(
@@ -798,6 +889,11 @@ export class ZKPassport {
       bridgeUrl,
       replayFrom: replayMissedMessages ? 1 : undefined,
     })
+
+    // The bridge takes the first connection to a request as the website's. The request must not
+    // be handed out, to be scanned, before this connection is open: a phone that got there first
+    // would be reported as the website, and its handshake would be missed.
+    await waitForBridgeConnection(bridge, BRIDGE_CONNECT_TIMEOUT_MS)
 
     const topic = bridge.connection.getBridgeId()
 
@@ -822,7 +918,7 @@ export class ZKPassport {
       returnDeepLink,
       verifierMode,
       config,
-      appClip: overrides?.appClip ?? false,
+      allowedVerificationMethods,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -894,6 +990,8 @@ export class ZKPassport {
    * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @param config Verification settings such as the RPC URL, see {@link VerificationConfig}.
+   * @param allowedVerificationMethods The credentials your service accepts, see {@link AllowedVerificationMethod}.
+   * Defaults to signed credentials only (tier 1).
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
@@ -909,6 +1007,7 @@ export class ZKPassport {
     uniqueIdentifierType,
     verifierMode = "auto",
     config,
+    allowedVerificationMethods,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -921,10 +1020,13 @@ export class ZKPassport {
     uniqueIdentifierType?: RequestedNullifierType
     verifierMode?: VerifierMode
     config?: VerificationConfig
+    allowedVerificationMethods?: AllowedVerificationMethod[]
   }): Promise<VerificationResult> {
     if (!originalQuery || !queryResult) {
       throw new Error("verify() requires `originalQuery` and `queryResult`")
     }
+    // Expose document_type if any fields are disclosed
+    originalQuery = withDocumentType(originalQuery)
     const notVerified: VerificationResult = {
       uniqueIdentifier: undefined,
       uniqueIdentifierType: undefined,
@@ -935,13 +1037,24 @@ export class ZKPassport {
     if (!proofs || proofs.length === 0) {
       return notVerified
     }
-    const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
+    const params = {
+      proofs,
+      originalQuery,
+      queryResult,
+      validity,
+      scope,
+      devMode,
+      oprfKeyId,
+      allowedVerificationMethods,
+    }
     const localParams = { ...params, writingDirectory, config }
     const apiParams = { ...params, domain: this.domain }
     const requestedType = oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType
 
     let result: VerificationResult
-    if (verifierMode === "local") {
+    // The hosted verifier only knows the published circuits, so proofs made with circuits
+    // served from elsewhere can only be verified locally, and its errors would be misleading
+    if (verifierMode === "local" || (verifierMode === "auto" && config?.circuitsUrl)) {
       result = await this.verifyLocally(localParams)
     } else if (verifierMode === "api") {
       result = (await verifyWithVerifierApi(apiParams)) ?? notVerified
@@ -956,7 +1069,10 @@ export class ZKPassport {
         ? localResult
         : ((await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified)
     }
-    return enforceUniqueIdentifierType(result, requestedType)
+    return enforceUniqueIdentifierType(
+      enforceVerificationMethodPolicy(result, allowedVerificationMethods),
+      requestedType,
+    )
   }
 
   private async verifyLocally({
@@ -969,6 +1085,7 @@ export class ZKPassport {
     writingDirectory,
     oprfKeyId,
     config,
+    allowedVerificationMethods,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -979,8 +1096,18 @@ export class ZKPassport {
     writingDirectory?: string
     oprfKeyId?: string
     config?: VerificationConfig
+    allowedVerificationMethods?: AllowedVerificationMethod[]
   }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
+
+    // The version picks the public-input layout and the circuit manifest, so every proof must
+    // state the same well-formed one: a proof without it would be read with the layout of
+    // circuits made before the verification method existed, as a chip read
+    const version = proofs[0]?.version
+    if (!isCircuitVersion(version) || proofs.some((proof) => proof.version !== version)) {
+      console.warn("The proofs must all state the same circuit version")
+      return { uniqueIdentifier: undefined, uniqueIdentifierType: undefined, verified: false }
+    }
 
     // Automatically set the writing directory to `/tmp` if it is not provided
     // and the code is not running in the browser
@@ -994,14 +1121,19 @@ export class ZKPassport {
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
+    let verificationMethod: VerificationMethod | undefined
     try {
-      const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode), config)
+      const registryClient = createRegistryClient(
+        getChainFromQuery(originalQuery, devMode),
+        getRegistryClientOptions(config),
+      )
       const {
         isCorrect,
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
         uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
         queryResultErrors: queryResultErrorsFromPublicInputs,
         rootTimestamp,
+        verificationMethod: verificationMethodFromPublicInputs,
       } = await PublicInputChecker.checkPublicInputs(
         this.domain,
         proofs,
@@ -1012,7 +1144,9 @@ export class ZKPassport {
         oprfKeyId,
         devMode,
         registryClient,
+        allowedVerificationMethods,
       )
+      verificationMethod = verificationMethodFromPublicInputs
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
       verified = isCorrect
@@ -1078,7 +1212,13 @@ export class ZKPassport {
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
     uniqueIdentifierType = verified ? uniqueIdentifierType : undefined
-    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
+    return {
+      uniqueIdentifier,
+      uniqueIdentifierType,
+      verified,
+      queryResultErrors,
+      verificationMethod,
+    }
   }
 
   public getSolidityVerifierDetails(): {
@@ -1100,14 +1240,12 @@ export class ZKPassport {
     domain,
     scope,
     devMode = false,
-    // oprfPubKeyHash,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain?: string
     scope?: string
     devMode?: boolean
-    // oprfPubKeyHash?: string
   }) {
     return SolidityVerifier.getParameters({
       proof,
@@ -1115,7 +1253,29 @@ export class ZKPassport {
       domain: domain ?? this.domain,
       scope,
       devMode,
-      // oprfPubKeyHash,
+    })
+  }
+
+  /**
+   * Get the capsules an Aztec contract's `verify_zkpassport_proof` reads for a proof, as plain
+   * data: `{ capsules: [{ slot, fields }] }`, fields as 0x-prefixed hex. `@zkpassport/aztec`'s
+   * `toAztecCapsules` turns them into aztec.js capsules for a contract and a sender.
+   * @param proof The `outer_count_N` proof of a circuits 0.23.x request made in `compressed` mode.
+   * @param network The Aztec network the proof will be verified on, `aztec` or `aztec_testnet`.
+   * Required for a proof bound to no Aztec network; for a bound one it must be the bound network.
+   * @returns The proof capsule, then a disclose, sanctions or face match capsule for each of those
+   * the proof carries.
+   */
+  public async getAztecVerifierParameters({
+    proof,
+    network,
+  }: {
+    proof: ProofResult
+    network?: AztecNetwork
+  }): Promise<AztecVerifierParameters> {
+    return AztecVerifier.getParameters({
+      proof,
+      registryClient: createRegistryClient(AztecVerifier.getChain(proof, network)),
     })
   }
 
@@ -1133,10 +1293,9 @@ export class ZKPassport {
     const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
     const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
-    // `/c` is the no-install App Clip lane (opted into via `overrides.appClip`);
-    // `/r` is the default (full app, or web download fallback).
-    const path = this.topicToLocalConfig[requestId].appClip ? "c" : "r"
-    let url = `https://zkpassport.id/${path}?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
+    // The popup moves a request the App Clip can start to the `/c` link; the SDK's own URL
+    // stays on `/r`
+    let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
     if (nullifierType != null) {
       url += `&nt=${nullifierType}`
     }
@@ -1145,6 +1304,10 @@ export class ZKPassport {
     }
     if (returnDeepLink) {
       url += `&r=${encodeURIComponent(returnDeepLink)}`
+    }
+    const allowedVerificationMethods = this.topicToLocalConfig[requestId].allowedVerificationMethods
+    if (allowedVerificationMethods) {
+      url += `&ac=${serializeAllowedVerificationMethods(allowedVerificationMethods)}`
     }
     return url
   }
@@ -1175,6 +1338,51 @@ export class ZKPassport {
    */
   public getRequestKeyPair(requestId: string): KeyPair | undefined {
     return this.topicToBridge[requestId]?.getKeyPair()
+  }
+
+  /**
+   * @notice Checks whether the phone that picked up a request is still on its bridge, by sending a
+   * ping that the phone answers. A request read back after a reload only knows how far the phone
+   * once got, not that it is still there.
+   * @param requestId The request ID.
+   * @param timeoutMs How long to wait for the phone to answer.
+   * @returns True when the phone answers in time; false when it does not, or the request is gone.
+   */
+  public isPhoneConnected(requestId: string, timeoutMs = 5000): Promise<boolean> {
+    const bridge = this.topicToBridge[requestId]
+    if (!bridge) return Promise.resolve(false)
+    return new Promise((resolve) => {
+      let settled = false
+      const ping = () => {
+        try {
+          bridge.connection
+            .getWebSocket()
+            ?.send(JSON.stringify({ method: "ping", params: {}, nocache: true }))
+        } catch (reason) {
+          logger.debug("Could not ping the phone:", reason)
+        }
+      }
+      const stopListening = bridge.onRawMessage((raw: unknown) => {
+        let method: unknown
+        try {
+          method = JSON.parse(String(raw))?.method
+        } catch {
+          return
+        }
+        if (method === "pong" || method === "ping") finish(true)
+      })
+      const stopWaitingForConnect = bridge.onConnect(ping)
+      const timer = setTimeout(() => finish(false), timeoutMs)
+      function finish(connected: boolean) {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        stopListening()
+        stopWaitingForConnect()
+        resolve(connected)
+      }
+      if (bridge.isBridgeConnected()) ping()
+    })
   }
 
   /**

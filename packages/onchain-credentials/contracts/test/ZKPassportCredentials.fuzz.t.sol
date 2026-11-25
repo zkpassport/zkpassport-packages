@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 
 contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
     function setUp() public {
@@ -19,7 +19,7 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         uint256 policyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(credentialDuration)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             credentialDuration,
             "https://policy.example/fuzz",
             false,
@@ -41,7 +41,7 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
         zkPassportCredentials.createPolicy(
             bytes32(uint256(credentialDuration)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             credentialDuration,
             "https://policy.example/fuzz",
             false,

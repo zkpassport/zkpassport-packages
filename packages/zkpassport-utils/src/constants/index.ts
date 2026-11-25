@@ -2,17 +2,9 @@ import { CountryName } from "../types/countries"
 
 /**
  * List of countries that are sanctioned by the US government.
+ * Excludes the region embargoes (Crimea, DNR, LNR), which can't be checked by nationality.
  */
-const SANCTIONED_COUNTRIES: CountryName[] = [
-  "North Korea",
-  "Iran",
-  "Iraq",
-  "Libya",
-  "Somalia",
-  "Sudan",
-  "Syrian Arab Republic",
-  "Yemen",
-]
+const SANCTIONED_COUNTRIES: CountryName[] = ["Cuba", "Iran", "North Korea"]
 
 /**
  * List of countries that are part of the European Union.

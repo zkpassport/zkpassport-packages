@@ -5,48 +5,104 @@
 //! (test-harness/fixture-conformance.test.ts, which parses this file at test time).
 //! An anchor only changes when the scheme itself changes; a stale one fails both suites.
 
-/// age_commitment(18, 0): the age-gate example's policy (18+, no maximum).
-pub global AGE_18_COMMITMENT: Field =
+/// age_commitment(18, 0): an 18+ policy with no maximum.
+pub(crate) global AGE_18_COMMITMENT: Field =
     0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83;
 
 /// birthdate_commitment(-631152000, 978220800): born from 1950-01-01 to 2000-12-31.
-pub global BIRTHDATE_COMMITMENT: Field =
+pub(crate) global BIRTHDATE_COMMITMENT: Field =
     0x1ff20dad03ccac18daf099e88f97b883334bac398b81100f99244158eb242627;
 
 /// expiry_date_commitment(1798761600, 0): expires on 2027-01-01 or later.
-pub global EXPIRY_DATE_COMMITMENT: Field =
+pub(crate) global EXPIRY_DATE_COMMITMENT: Field =
     0x2f13cf0dbd16ac2637f3b19ca631933220ed96d4922e9fafcbc5b27a2df59de9;
 
 /// nationality_inclusion_commitment(["FRA", "DEU", "ITA"]).
-pub global NATIONALITY_INCLUSION_COMMITMENT: Field =
+pub(crate) global NATIONALITY_INCLUSION_COMMITMENT: Field =
     0x2dc5e592e38eeb5eee6d4a8b977465cfda38f3f278567b46a50a8d1a6fc0a5b4;
 
 /// nationality_exclusion_commitment(["PRK", "IRN", "SYR"]), a list given unsorted.
-pub global NATIONALITY_EXCLUSION_COMMITMENT: Field =
+pub(crate) global NATIONALITY_EXCLUSION_COMMITMENT: Field =
     0x2837d9da8e0b7bf3895bdd5acaeb4aef29a4114c2621e9d046f2db11c599ccec;
 
 /// issuing_country_inclusion_commitment(["NLD", "BEL", "LUX"]).
-pub global ISSUING_COUNTRY_INCLUSION_COMMITMENT: Field =
+pub(crate) global ISSUING_COUNTRY_INCLUSION_COMMITMENT: Field =
     0x0900b574ac5a979c7c62f154bff35fd50c4794bf1af41c6f2d7935f1d9a0a9a0;
 
 /// issuing_country_exclusion_commitment(["RUS", "BLR"]), a list given unsorted.
-pub global ISSUING_COUNTRY_EXCLUSION_COMMITMENT: Field =
+pub(crate) global ISSUING_COUNTRY_EXCLUSION_COMMITMENT: Field =
     0x21bf8243ed1f5a53489a829b7320a494600c87dd72c0a3f88ed580eded7d0fd1;
 
 /// disclose_commitment over a nationality-only TD3 mask: bytes 54..=56 disclosed as "AUS".
 pub global DISCLOSE_COMMITMENT: Field =
     0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
 
-/// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against
-/// dev-mode registries, current_date 2050-01-01), in the K=4 layout parse.nr decodes.
-pub global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
-    0x14ed64f7a9c0dd706f7ad0b14d70628a15afb58b474ef2b120a392c3b00b3a29, // cert root
-    0x028b892fac1779539640734adfb7ae6ee4e495609e98860fa46f67b272499f5a, // circuit root
+/// face_match_commitment(Apple's App Attest root key, production, the iOS app's app id hash, 0,
+/// strict, 0): a strict face match from ZKPassport's iOS app.
+pub(crate) global FACE_MATCH_IOS_STRICT_COMMITMENT: Field =
+    0x12a2e5b32f9791f950cd54edf2d743b21280e357a0a9416d88067c7f2556dbc2;
+
+/// face_match_commitment(Apple's App Attest root key, production, the iOS App Clip's app id hash,
+/// 0, regular, 0): a regular face match from ZKPassport's iOS App Clip.
+pub(crate) global FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT: Field =
+    0x0cb1797e10e3e6b5b3f20481f7bf5b215be2568dbc9cb2b3cf8dacb6a3c88d47;
+
+/// face_match_commitment(Google's RSA root key, production, the Android app's app id hash, its
+/// Play Integrity key hash, strict, the empty revocation root): a strict face match from
+/// ZKPassport's Android app.
+pub(crate) global FACE_MATCH_ANDROID_STRICT_COMMITMENT: Field =
+    0x1ec0db9cde1f07c72a2fb5ce008c18bd9ad150477fef05665aba7e09bb5dfa11;
+
+/// An account address to bind a proof to. @zkpassport/utils' bind conformance vector uses the
+/// same one.
+pub(crate) global BIND_ACCOUNT: Field =
+    0x1122334455667788990011223344556677889900112233445566778899001122;
+
+/// bind_commitment(BIND_ACCOUNT, 679261766): the account bound to Aztec testnet, whose rollup
+/// version is its chain id.
+pub(crate) global BIND_COMMITMENT: Field =
+    0x260abafd2a3531d54ac6b4595a8a231bee885906858d3fa97d9dc09e8121c69e;
+
+/// bind_commitment(BIND_ACCOUNT, 1): the account bound to Ethereum, a chain id of 1 byte.
+pub(crate) global BIND_ETHEREUM_COMMITMENT: Field =
+    0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784;
+
+/// bind_commitment(BIND_ACCOUNT, 8453): the account bound to Base, a chain id of 2 bytes.
+pub(crate) global BIND_BASE_COMMITMENT: Field =
+    0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3;
+
+/// bind_commitment(BIND_ACCOUNT, 11155111): the account bound to Sepolia, a chain id of 3 bytes.
+pub(crate) global BIND_ETHEREUM_SEPOLIA_COMMITMENT: Field =
+    0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76;
+
+/// A sanctions tree root.
+pub global SANCTIONS_ROOT: Field =
+    0x0f4bd1a7c33e2b5d6e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5;
+
+/// sanctions_commitment(SANCTIONS_ROOT, true). The SDK's `sanctions()` and the verifier's
+/// `Query::sanctions()` must both ask for it: the verifier's tests hold `Query` to it, and
+/// zkpassport-sdk's tests/aztec-query-conformance.test.ts holds the SDK's builders to it.
+pub global SANCTIONS_COMMITMENT: Field =
+    0x01c9c6d5d275b0ba3ba052df81cbb349b947582b3a9807adc6decfd3e19111d9;
+
+/// Public inputs transcribed from a real circuits 0.23.0 outer_count_4 proof (a byte-disclosure
+/// check against a synthetic certificate registry and the release's circuit registry, current_date
+/// 2050-01-01), in the K=4 layout parse.nr decodes.
+pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 10] = [
+    0x1b8e5d87ccfbc9a6bc78d462cef815afa7f1ad749bb9b00141a1bcc3b776cb5c, // cert root
+    0x002ec7a7f7faa8aa6507eec1920a6b775114de2c5a9d9c608fce9223d5cc6321, // circuit root
     0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
+    0x0000000000000000000000000000000000000000000000000000000000000000, // domain
     0x0000000000000000000000000000000000000000000000000000000000000000, // scope
-    0x0000000000000000000000000000000000000000000000000000000000000000, // subscope
     0x0d9b28951df317e973975cd74ecffd626d07d5a0e19eed6d19612bb70f32862b, // param_commitments[0]
     0x0000000000000000000000000000000000000000000000000000000000000000, // nullifier_type
     0x1c2de0aff0b433e96e0f1da31cec1d9e8b5e98c75d8d5c2e3e255ad689fe6354, // scoped_nullifier
     0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
+    0x0000000000000000000000000000000000000000000000000000000000000064, // verification_method
 ];
+
+// A real age proof for tests, written by test-harness/generate-proof-fixtures.sh.
+pub mod proof;
+
+// The age proof bound to TXE's network.
+pub mod txe;

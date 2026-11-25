@@ -56,7 +56,7 @@ function main() {
   }
   expectLen("vk", vk, 115)
   expectLen("proof", proof, 458)
-  expectLen("publicInputs", pis, 9)
+  expectLen("publicInputs", pis, 10)
   expectLen("discloseMask", mask, 90)
   expectLen("disclosedBytes", disclosed, 90)
 

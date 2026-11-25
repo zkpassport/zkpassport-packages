@@ -12,6 +12,8 @@ import {
   ProofResult,
   SupportedChain,
   Query,
+  VerificationMethod,
+  type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 import type { ZKPassport } from "./index"
 
@@ -28,6 +30,8 @@ export type QueryResultErrors = {
       | "sig_check_dsc"
       | "sig_check_id_data"
       | "data_check_integrity"
+      | "attested_id"
+      | "verification_method"
       | "outer"
       | "disclose"
       | "bind"
@@ -46,6 +50,7 @@ export type QueryResultErrors = {
     commitment?: QueryResultError<string>
     date?: QueryResultError<string>
     certificate?: QueryResultError<string>
+    revocation?: QueryResultError<string>
     scope?: QueryResultError<string>
   }
 }
@@ -62,6 +67,14 @@ export type VerificationConfig = {
    * and Ethereum otherwise. Defaults to the built-in endpoint for that chain.
    */
   rpcUrl?: string
+  /**
+   * Where to fetch the circuit manifest and the packaged circuits (the verification keys) from,
+   * instead of ZKPassport's CDN. For verifying proofs made with locally packaged circuits, served
+   * with the circuits repo's `serve-circuits` script: it must be the same server the app proved
+   * with. Expects `<url>/by-version/<version>/manifest.json`, `<url>/by-root/<root>/manifest.json`
+   * and `<url>/by-hash/<vkey hash>.json`.
+   */
+  circuitsUrl?: string
 }
 
 // The nullifier types a service can ask for. The mock ones only ever come from the app in dev mode.
@@ -72,6 +85,14 @@ export type VerificationResult = {
   uniqueIdentifier: string | undefined
   uniqueIdentifierType: NullifierType | undefined
   verified: boolean
+  /**
+   * The scheme the proofs were made under. Its tier (`getTierForVerificationMethod`) says what
+   * they rest on. Tier 1: the ID's chip, signed by its issuing country. Tier 2: the printed data
+   * page read by camera and attested by the device (App Attest or Play Integrity) together with
+   * a strict face match. A Tier 2 unique identifier is derived from the printed MRZ, not from a
+   * signature, so it is not proof against fabricated documents.
+   */
+  verificationMethod?: VerificationMethod
   queryResultErrors?: Partial<QueryResultErrors>
 }
 
@@ -86,7 +107,8 @@ export type SolidityServiceConfig = {
   domain: string
   scope: string
   devMode: boolean
-  // oprfPubKeyHash: string
+  /** The credentials the service accepts; empty means signed credentials only */
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }
 
 export type SolidityVerifierParameters = {
@@ -197,6 +219,7 @@ export type QueryBuilderResult = {
       uniqueIdentifier: string | undefined
       uniqueIdentifierType: NullifierType | undefined
       verified: boolean
+      verificationMethod?: VerificationMethod
       result: QueryResult
       queryResultErrors?: Partial<QueryResultErrors>
       proofs: ProofResult[]
@@ -312,12 +335,11 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    * @param lists The specific lists from a given country to check against. Defaults to "all".
    * e.g. ["OFAC_SDN"], "all"
    * @param options The options to use for the sanction check.
-   * @param options.strict Whether to use a strict sanction check. Defaults to false.
+   * @param options.strict Whether to use a strict sanction check. Defaults to true.
    *
-   * If set to true, this means the checks will be done against just the lastname and firstname,
-   * while when set to false, matches will need to include either the date of birth and name or
-   * the passport number and nationality.
-   * Strict mode has therefore a higher false positive rate but is harder to evade.
+   * Both modes reject a match on name and date of birth, name and year of birth, or passport
+   * number and nationality. Strict mode also rejects a match on first and last name alone, so it
+   * has a higher false positive rate but is harder to evade.
    */
   sanctions: (
     countries?: SanctionsCountries,

@@ -6,7 +6,7 @@ import {
   decodeErrorResult,
   type Hex,
 } from "viem"
-import { PolicyEvaluatorV1Abi } from "@zkpassport/onchain-credentials"
+import { PolicyEvaluatorV2Abi } from "@zkpassport/onchain-credentials"
 
 // Pure mapping from a viem failure to something worth showing. Kept apart from
 // use-mint so it stays testable without loading the whole flow.
@@ -37,7 +37,7 @@ export function describeMintError(error: unknown): MintError {
 function evaluatorErrorName(raw: Hex | undefined): string | undefined {
   if (!raw) return undefined
   try {
-    return decodeErrorResult({ abi: PolicyEvaluatorV1Abi, data: raw }).errorName
+    return decodeErrorResult({ abi: PolicyEvaluatorV2Abi, data: raw }).errorName
   } catch {
     return undefined
   }

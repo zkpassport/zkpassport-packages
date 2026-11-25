@@ -44,7 +44,7 @@ export function walletHasTransaction(phase: MintPhase): boolean {
 
 export type DoneStep =
   | { kind: "done"; outcome: "minted"; hash: Hex }
-  | { kind: "done"; outcome: "already-verified" }
+  | { kind: "done"; outcome: "already-verified"; heldUntil: bigint }
 
 export type FlowStepKind = FlowStep["kind"]
 
@@ -101,8 +101,9 @@ export function useCredentialFlow(params: CredentialFlowParams) {
       const policyId = BigInt(credential.policyId)
 
       if (await credentialsContract.hasCredential(recipient, policyId)) {
+        const heldUntil = await credentialsContract.heldUntil(recipient, policyId)
         if (stale()) return
-        setStep({ kind: "done", outcome: "already-verified" })
+        setStep({ kind: "done", outcome: "already-verified", heldUntil })
         emit({
           type: "success",
           proofs: [],

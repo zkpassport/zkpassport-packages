@@ -19,11 +19,13 @@ import {
   getSanctionsParameterCommitment,
   hashOprfPublicKey,
   NullifierType,
+  EMPTY_ATTESTATION_REVOCATION_ROOT,
 } from "@zkpassport/utils"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
+  ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
 } from "../src/constants"
 import { RegistryClient } from "@zkpassport/registry"
@@ -785,6 +787,28 @@ describe("PublicInputChecker - originalQuery validation", () => {
       expect(hasOriginalQueryError(queryResultErrors.bind, "eq")).toBe(true)
     })
 
+    test("no originalQuery error when the proof is bound to the query's Aztec network", () => {
+      const bind = { user_address: `0x${"ab".repeat(32)}`, chain: "aztec_testnet" as const }
+      const { queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
+        { bind },
+        { bind },
+        bind,
+      )
+      expect(hasOriginalQueryError(queryResultErrors.bind, "eq")).toBe(false)
+    })
+
+    test("fails when the proof is bound to another Aztec network", () => {
+      const userAddress = `0x${"ab".repeat(32)}`
+      const originalQuery: Query = { bind: { user_address: userAddress, chain: "aztec_testnet" } }
+      const queryResult: QueryResult = { bind: { user_address: userAddress, chain: "aztec" } }
+      const { queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
+        originalQuery,
+        queryResult,
+        { user_address: userAddress, chain: "aztec" },
+      )
+      expect(hasOriginalQueryError(queryResultErrors.bind, "eq")).toBe(true)
+    })
+
     test("fails when queryResult has bind but originalQuery does not", () => {
       const originalQuery: Query = {}
       const queryResult: QueryResult = {
@@ -890,6 +914,26 @@ describe("PublicInputChecker - originalQuery validation", () => {
       if (modeMessage) {
         expect(modeMessage).not.toContain("facematch mode")
       }
+    })
+
+    test("asks no revocation root of an Android face match from circuits before 0.23.0", async () => {
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
+        { facematch: { mode: "strict" } },
+        { facematch: { mode: "strict", passed: true } },
+        {
+          rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+          environment: "production" as const,
+          appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
+          integrityPubkeyHash: "0x0",
+          mode: "strict" as const,
+        },
+        false,
+        undefined,
+        undefined,
+        false,
+      )
+      expect(queryResultErrors.facematch?.revocation).toBeUndefined()
+      expect(isCorrect).toBe(true)
     })
   })
 })
@@ -1705,6 +1749,78 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
 
   describe("checkFacematchPublicInputs", () => {
     const originalQuery: Query = { facematch: { mode: "regular" } }
+    const PUBLISHED_REVOCATION_ROOT = "0x" + "cd".repeat(32)
+    let latestRevocationRoot = "0x" + "00".repeat(32)
+    const mocks: { mockRestore: () => void }[] = []
+
+    beforeEach(() => {
+      latestRevocationRoot = "0x" + "00".repeat(32)
+      mocks.push(
+        spyOn(RegistryClient.prototype, "getLatestAttestationRevocationRoot").mockImplementation(
+          async () => latestRevocationRoot,
+        ),
+        spyOn(RegistryClient.prototype, "isAttestationRevocationRootValid").mockImplementation(
+          async (root: string) => root === latestRevocationRoot,
+        ),
+      )
+    })
+
+    afterEach(() => {
+      mocks.splice(0).forEach((mock) => mock.mockRestore())
+    })
+
+    const androidInputs = (revocationRoot?: string) =>
+      makeFacematchInputs({
+        rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+        appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
+        revocationRoot,
+      })
+    const regular: QueryResult = { facematch: { mode: "regular", passed: true } }
+
+    test("accepts an Android empty revocation root while the registry has none", async () => {
+      const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs(EMPTY_ATTESTATION_REVOCATION_ROOT),
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("rejects the empty revocation root once the registry publishes a root", async () => {
+      latestRevocationRoot = PUBLISHED_REVOCATION_ROOT
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs(EMPTY_ATTESTATION_REVOCATION_ROOT),
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.revocation?.message).toContain("revocation")
+      const published = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs(PUBLISHED_REVOCATION_ROOT),
+      )
+      expect(published.isCorrect).toBe(true)
+    })
+
+    test("rejects an Android revocation root the registry does not hold", async () => {
+      const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs("0x" + "ef".repeat(32)),
+      )
+      expect(isCorrect).toBe(false)
+    })
+
+    test("rejects an iOS face match with a revocation root", async () => {
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        makeFacematchInputs({ revocationRoot: PUBLISHED_REVOCATION_ROOT }),
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.revocation?.message).toContain("iOS")
+    })
 
     function makeFacematchInputs(
       overrides: Partial<FacematchCommittedInputs> = {},
@@ -1731,6 +1847,18 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       expect(isCorrect).toBe(true)
     })
 
+    test("passes with the iOS App Clip app id", async () => {
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+      const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        queryResult,
+        makeFacematchInputs({ appIdHash: ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH }),
+      )
+      expect(isCorrect).toBe(true)
+    })
+
     test("passes with valid Google RSA root key and Android app id", async () => {
       const queryResult: QueryResult = {
         facematch: { mode: "regular", passed: true },
@@ -1738,10 +1866,7 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
         originalQuery,
         queryResult,
-        makeFacematchInputs({
-          rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
-          appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
-        }),
+        androidInputs(EMPTY_ATTESTATION_REVOCATION_ROOT),
       )
       expect(isCorrect).toBe(true)
     })
@@ -2445,6 +2570,67 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       )
 
       expect(queryResultErrors.outer?.date).toBeUndefined()
+    })
+  })
+
+  describe("outer proof path - Tier 2 verification method", () => {
+    const domain = "example.com"
+    // outer_attested_id_count_3: [certRegistryRoot, circuitRegistryRoot, currentDate,
+    // serviceScope, subscope, 3 paramCommitments, nullifierType, nullifier, oprfPkHash, scheme]
+    function makeAttestedOuterProof(scheme: bigint, version?: string): ProofResult {
+      return {
+        name: "outer_attested_id_count_3",
+        version,
+        proof: buildProofHex([
+          1n,
+          2n,
+          BigInt(getTodayTimestamp()),
+          getServiceScopeHash(domain),
+          0n,
+          0n,
+          0n,
+          0n,
+          0n,
+          // Zero, so the layout of a proof without a version still reads a valid nullifier type
+          0n,
+          0n,
+          scheme,
+        ]),
+        total: 1,
+        committedInputs: {},
+      } as ProofResult
+    }
+
+    test("reads the scheme of a Tier 2 outer proof whatever version it states", async () => {
+      for (const version of [undefined, "0.23.0"]) {
+        const { isCorrect, verificationMethod } = await PublicInputChecker.checkPublicInputs(
+          domain,
+          [makeAttestedOuterProof(200n, version)],
+          {},
+          {},
+          86400 * 365,
+          undefined,
+          undefined,
+          true,
+          undefined,
+          [1, 2],
+        )
+        expect(verificationMethod).toBe(200)
+        // No attestation was committed to, so the device attestation check refuses it
+        expect(isCorrect).toBe(false)
+      }
+    })
+
+    test("refuses a Tier 2 outer proof stating a chip scheme", async () => {
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        [makeAttestedOuterProof(100n, "0.23.0")],
+        {},
+        {},
+        86400 * 365,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.certificate?.message).toContain("scheme of another tier")
     })
   })
 

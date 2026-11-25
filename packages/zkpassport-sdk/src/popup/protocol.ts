@@ -1,4 +1,11 @@
-import type { ProofMode, ProofResult, Query, QueryResult, SupportedChain } from "@zkpassport/utils"
+import type {
+  AllowedVerificationMethod,
+  ProofMode,
+  ProofResult,
+  Query,
+  QueryResult,
+  SupportedChain,
+} from "@zkpassport/utils"
 import type { RequestedNullifierType } from "../types"
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
@@ -33,7 +40,7 @@ export type PopupRequestConfig = {
   domain?: string
   bridgeUrl?: string
   cloudProverUrl?: string
-  appClip?: boolean
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }
 
 export type PopupCredentialOutcome = {
@@ -43,6 +50,9 @@ export type PopupCredentialOutcome = {
   contract: `0x${string}`
   txHash?: `0x${string}`
 }
+
+export type PopupErrorCode =
+  "unsupported-id" | "id-not-accepted" | "device-unsupported" | "requirements-not-met"
 
 /**
  * Every message names its verification, because a browser that discards the popup's tab rebuilds it
@@ -71,7 +81,7 @@ export type PopupEventMessage =
       credential?: PopupCredentialOutcome
     }>
   | Addressed<{ type: "rejected" }>
-  | Addressed<{ type: "error"; message: string }>
+  | Addressed<{ type: "error"; message: string; code?: PopupErrorCode }>
 
 export type PopupMessage = PopupConfigureMessage | PopupReadyMessage | PopupEventMessage
 

@@ -5,7 +5,7 @@ import {NullifierType} from "@registry/lib/Types.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
 contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
@@ -15,7 +15,7 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
         vm.warp(1_700_000_000);
         mockHelper = new MockVerifierHelper();
         mockVerifier = new MockRootVerifier(mockHelper);
-        evaluator = new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)), false, NullifierType.SALTED_NULLIFIER);
+        evaluator = new PolicyEvaluatorV2(IRootVerifier(address(mockVerifier)), false, NullifierType.SALTED_NULLIFIER);
         zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, evaluator);
         mockHelper.setBoundData(wallet, block.chainid, "");
         mockHelper.setProofTimestamp(block.timestamp);
@@ -23,7 +23,7 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
     }
 
     function testNonDevEvaluatorRejectsDevModeProofs() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__DevModeProofRejected.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__DevModeProofRejected.selector);
         zkPassportCredentials.issue(policyId, _devModeParams());
     }
 
@@ -36,7 +36,7 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         uint256 saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(61)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             30 days,
             "x",
             true,
@@ -47,7 +47,7 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
         // Nullifier types match exactly on every deployment, so a submission claiming a mock
         // type in its public inputs never satisfies a uniqueness policy on an evaluator that
         // requires the real type.
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }
 

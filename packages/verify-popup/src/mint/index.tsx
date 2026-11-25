@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WagmiProvider, useDisconnect, useSwitchChain, type Config } from "wagmi"
 import type { PopupCredentialConfig, PopupConfigureMessage } from "@zkpassport/sdk/popup"
 import type { Chain } from "viem"
 
-import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "./wagmi"
+import { resolveWalletChain } from "./wagmi"
 import type { OutgoingEvent } from "../app"
-import { buildWalletConfig } from "./wagmi"
 import { FlowCard, type ProgressSegment } from "../shared/flow-card"
 import { useConfirmClose } from "../shared/use-confirm-close"
+import { useContinueToAppClip } from "../shared/use-open-app"
 import { Connect } from "./wallet"
 import { Done, type DoneOutcome } from "../shared/done"
 import { ErrorScreen } from "../shared/error"
@@ -17,8 +17,11 @@ import { Resolving } from "./resolving"
 import type { ZKPassportQRCodeOptions } from "@zkpassport/ui/hosted"
 import type { ScanProgress } from "../verify/waiting"
 import { Intro } from "../verify/intro"
+import { codeReplaced, codeShown, type Attempts } from "../verify/lane"
 import { Scan } from "../verify/scan"
+import { useRequestUrl } from "../verify/use-request-url"
 import { Waiting } from "../verify/waiting"
+import { describePhoneError } from "../verify/phone-errors"
 import { useRequest } from "../request"
 import {
   mintInProgress,
@@ -41,20 +44,9 @@ type CredentialFlowProps = {
 export function CredentialFlow({ request, credential, rpHost, send }: CredentialFlowProps) {
   const sendRef = useRef(send)
   sendRef.current = send
-  const [queryClient] = useState(() => new QueryClient())
   const appName = request.name || rpHost
 
-  const resolved = useMemo((): { chain: Chain; config: Config } | { error: string } => {
-    try {
-      const chain = resolveCredentialsChain(
-        credential.chain,
-        rpcOverrideFromLocation(window.location) ?? configuredRpcUrl(credential.chain),
-      )
-      return { chain, config: buildWalletConfig(chain) }
-    } catch (reason) {
-      return { error: reason instanceof Error ? reason.message : String(reason) }
-    }
-  }, [credential])
+  const resolved = useMemo(() => resolveWalletChain(credential.chain), [credential])
 
   useEffect(() => {
     if ("error" in resolved) {
@@ -66,24 +58,35 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   // nothing to retry
   if ("error" in resolved) {
     return (
-      <FlowCard name={appName} logo={request.logo} screenKey="error">
-        <ErrorScreen message={resolved.error} />
+      <FlowCard screenKey="error">
+        <ErrorScreen
+          title="This site isn’t set up yet"
+          message={`${appName} can’t save verifications on this network yet.`}
+          detail={resolved.error}
+        />
       </FlowCard>
     )
   }
 
   return (
-    <WagmiProvider config={resolved.config}>
-      <QueryClientProvider client={queryClient}>
-        <FlowBody
-          request={request}
-          credential={credential}
-          appName={appName}
-          rpHost={rpHost}
-          send={send}
-          chain={resolved.chain}
-        />
-      </QueryClientProvider>
+    <WalletProviders config={resolved.config}>
+      <FlowBody
+        request={request}
+        credential={credential}
+        appName={appName}
+        rpHost={rpHost}
+        send={send}
+        chain={resolved.chain}
+      />
+    </WalletProviders>
+  )
+}
+
+export function WalletProviders({ config, children }: { config: Config; children: ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient())
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   )
 }
@@ -91,13 +94,31 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
 type FlowBodyProps = CredentialFlowProps & {
   appName: string
   chain: Chain
+  /**
+   * False on a page the user opened themselves, which can't close itself, so the done screen
+   * offers no Return button.
+   */
+  closable?: boolean
+  /** Offers another wallet on the consent screen, where the connected wallet is the recipient. */
+  onChangeWallet?: () => void
 }
 
-function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBodyProps) {
+export function FlowBody({
+  request,
+  credential,
+  appName,
+  rpHost,
+  send,
+  chain,
+  closable,
+  onChangeWallet,
+}: FlowBodyProps) {
   const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
     useCredentialFlow({ request, credential, appName, chain, send })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
+  // Kept here because starting over rebuilds the verify step
+  const [attempts, setAttempts] = useState<Attempts>({})
 
   // Verifying costs the user real work, and a verified proof waiting to be
   // minted is lost with the window. Resolving and the endings are cheap.
@@ -111,11 +132,15 @@ function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBod
         return (
           <VerifyStep
             appName={appName}
+            logo={request.logo}
             rpHost={rpHost}
             purpose={request.purpose}
             options={step.cardOptions}
             progress={scan}
+            attempts={attempts}
+            onAttempts={setAttempts}
             onStartAgain={startOver}
+            onChangeWallet={onChangeWallet}
           />
         )
       case "mint":
@@ -132,12 +157,21 @@ function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBod
             onSwitchChain={() => switchChain.mutate({ chainId: chain.id })}
             onMint={mint}
             onChangeWallet={() => disconnect.mutate()}
-            onStartOver={startOver}
+            onStartOver={() => {
+              setAttempts(codeReplaced(attempts, true))
+              startOver()
+            }}
             onCheckTransaction={checkTransaction}
           />
         )
       case "done":
-        return <Done outcome={doneOutcome(step, credential.recipient, chain)} appName={appName} />
+        return (
+          <Done
+            outcome={doneOutcome(step, credential.recipient, chain)}
+            appName={appName}
+            closable={closable}
+          />
+        )
       case "error":
         return <ErrorScreen message={step.message} onRetry={startOver} />
     }
@@ -145,8 +179,6 @@ function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBod
 
   return (
     <FlowCard
-      name={appName}
-      logo={request.logo}
       progress={progressSegments(step.kind, payer !== undefined, phase)}
       screenKey={step.kind}
     >
@@ -158,7 +190,7 @@ function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBod
 function doneOutcome(step: DoneStep, recipient: `0x${string}`, chain: Chain): DoneOutcome {
   return step.outcome === "minted"
     ? { kind: "minted", hash: step.hash, recipient, chain }
-    : { kind: "already-verified", recipient, chain }
+    : { kind: "already-verified", recipient, chain, heldUntil: step.heldUntil }
 }
 
 // Two steps: prove who you are, then mint the token
@@ -186,21 +218,35 @@ function progressSegments(
  */
 function VerifyStep({
   appName,
+  logo,
   rpHost,
   purpose,
   options,
   progress,
+  attempts,
+  onAttempts,
   onStartAgain,
+  onChangeWallet,
 }: {
   appName: string
+  logo?: string
   rpHost: string
   purpose?: string
   options: ZKPassportQRCodeOptions
   progress: ScanProgress | null
+  attempts: Attempts
+  onAttempts: (attempts: Attempts) => void
   onStartAgain: () => void
+  onChangeWallet?: () => void
 }) {
   const [consented, setConsented] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
+  const [failure, setFailure] = useState<{
+    title?: string
+    message: string
+    detail?: string
+    retryLabel?: string
+    explained?: boolean
+  } | null>(null)
   const req = useRequest(
     {
       // The policy's domain is read from the chain, not from the opener
@@ -214,6 +260,7 @@ function VerifyStep({
         devMode: options.devMode,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
+        allowedVerificationMethods: options.allowedVerificationMethods,
         verifierMode: options.verifierMode,
       },
       query: options.query,
@@ -223,36 +270,81 @@ function VerifyStep({
       onProving: options.onGeneratingProof,
       onProof: options.onProofGenerated,
       onResult: (result) => {
-        if (!result.verified) setFailure("Your ID could not be verified. Please try again.")
+        if (!result.verified) {
+          setFailure({
+            title: "Verification didn’t finish",
+            message: "Your ID could not be verified. Try again.",
+          })
+        }
         options.onResult?.(result)
       },
       onReject: () => {
-        setFailure("The request was declined on your phone.")
+        setFailure({
+          title: "Request declined",
+          message: "You declined the request in ZKPassport. Start again if that was a mistake.",
+          retryLabel: "Start again",
+          explained: true,
+        })
         options.onReject?.()
       },
       onError: (message) => {
-        setFailure(String(message))
+        const known = describePhoneError(String(message), appName)
+        setFailure(
+          known
+            ? { title: known.title, message: known.message }
+            : {
+                title: "Verification didn’t finish",
+                message: "Something went wrong on your phone. Try again.",
+                detail: String(message),
+              },
+        )
         options.onError?.(message)
       },
     },
   )
 
+  useEffect(() => {
+    if (req.url) onAttempts(codeShown(attempts))
+  }, [req.url])
+
+  const link = useRequestUrl(req.url, options, attempts.stalledAttempts)
+  const appClip = useContinueToAppClip(link.url, () => setConsented(true))
+
   const tryAgain = () => {
     setFailure(null)
+    onAttempts(codeReplaced(attempts, failure?.explained))
     req.retry()
   }
 
-  if (failure) return <ErrorScreen message={failure} onRetry={tryAgain} />
-  if (progress) return <Waiting progress={progress} onStartAgain={onStartAgain} />
+  const startAgain = () => {
+    onAttempts(codeReplaced(attempts))
+    onStartAgain()
+  }
+
+  if (failure) {
+    const { explained: _explained, ...shown } = failure
+    return <ErrorScreen {...shown} onRetry={tryAgain} />
+  }
+  if (progress) return <Waiting progress={progress} onStartAgain={startAgain} />
   if (!consented) {
     return (
       <Intro
         appName={appName}
+        logo={logo}
         query={req.query}
         purpose={purpose}
-        onContinue={() => setConsented(true)}
+        onContinue={appClip.onContinue}
+        onChangeWallet={onChangeWallet}
       />
     )
   }
-  return <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} />
+  return (
+    <Scan
+      state={req.state}
+      url={link.url}
+      qrSvg={link.qrSvg}
+      onNewCode={tryAgain}
+      appClipOpened={appClip.appClipOpened}
+    />
+  )
 }

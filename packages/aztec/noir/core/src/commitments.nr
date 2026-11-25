@@ -1,4 +1,5 @@
 use crate::constants::{COUNTRY_LIST_LENGTH, SECONDS_BETWEEN_1900_AND_1970};
+use bind_lib::calculate_param_commitment as bind_param_commitment;
 use compare_age_lib::calculate_param_commitment as age_param_commitment;
 use compare_date_lib::calculate_param_commitment as date_param_commitment;
 use disclose_lib::calculate_param_commitment as disclose_param_commitment;
@@ -7,8 +8,9 @@ use exclusion_check_country_lib::{
 };
 use exclusion_check_sanctions_lib::param_commit::calculate_param_commitment as sanctions_param_commitment;
 use inclusion_check_country_lib::calculate_param_commitment as country_inclusion_param_commitment;
+use poseidon::poseidon2::Poseidon2;
 use utils::constants::{
-    EMPTY_ALPHA3_COUNTRY_CODE, PROOF_TYPE_BIRTHDATE, PROOF_TYPE_EXPIRY_DATE,
+    EMPTY_ALPHA3_COUNTRY_CODE, PROOF_TYPE_BIRTHDATE, PROOF_TYPE_EXPIRY_DATE, PROOF_TYPE_FACEMATCH,
     PROOF_TYPE_ISSUING_COUNTRY_EXCLUSION, PROOF_TYPE_ISSUING_COUNTRY_INCLUSION,
     PROOF_TYPE_NATIONALITY_EXCLUSION, PROOF_TYPE_NATIONALITY_INCLUSION,
 };
@@ -62,9 +64,85 @@ pub fn issuing_country_exclusion_commitment<let N: u32>(
     country_exclusion_commitment(PROOF_TYPE_ISSUING_COUNTRY_EXCLUSION, countries)
 }
 
+/// face match, as circuits 0.23.0 commit it: Poseidon2([PROOF_TYPE_FACEMATCH, 6, root_key_leaf,
+/// environment, app_id_hash, integrity_public_key_hash, facematch_mode, revocation_root]).
+/// The facematch lib at the pinned circuits tag predates the revocation root and commits five
+/// fields, so this doesn't call it.
+pub fn face_match_commitment(
+    root_key_leaf: Field,
+    environment: u8,
+    app_id_hash: Field,
+    integrity_public_key_hash: Field,
+    facematch_mode: u8,
+    revocation_root: Field,
+) -> Field {
+    let params = [
+        PROOF_TYPE_FACEMATCH as Field,
+        6,
+        root_key_leaf,
+        environment as Field,
+        app_id_hash,
+        integrity_public_key_hash,
+        facematch_mode as Field,
+        revocation_root,
+    ];
+    Poseidon2::hash(params, params.len())
+}
+
 /// sanctions record: Poseidon2([PROOF_TYPE_SANCTIONS_EXCLUSION, 2, root, is_strict])
 pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
+}
+
+/// bind(user_address, chain): the 509-byte bound data @zkpassport/utils' formatBoundData writes for
+/// an address and a chain, then zero padding:
+/// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address]
+/// [identifier = 2 (CHAIN_ID)][len_hi = 0][len_lo = n][chain id as n BE bytes, n as small as fits]
+/// An Aztec network's chain id is its rollup version, a 4-byte number, so `chain_id` must fit in
+/// 4 bytes.
+pub fn bind_commitment(account: Field, chain_id: Field) -> Field {
+    let mut data = [0 as u8; 509];
+    data[0] = 1;
+    data[1] = 0;
+    data[2] = 32;
+    let account_bytes: [u8; 32] = account.to_be_bytes();
+    for i in 0..32 {
+        data[3 + i] = account_bytes[i];
+    }
+
+    let chain_id_bytes: [u8; 4] = chain_id.to_be_bytes();
+    let leading_zero_bytes: u8 = if chain_id_bytes[0] != 0 {
+        0
+    } else if chain_id_bytes[1] != 0 {
+        1
+    } else if chain_id_bytes[2] != 0 {
+        2
+    } else {
+        3
+    };
+
+    data[35] = 2;
+    data[36] = 0;
+    data[37] = 4 - leading_zero_bytes;
+
+    // Shifting the leading zero bytes out leaves zeros after the chain id, where the data is zero
+    // padding anyway. Writing all 4 bytes at fixed indices costs far fewer gates than a write that
+    // depends on the length.
+    let shift: Field = if leading_zero_bytes == 0 {
+        1
+    } else if leading_zero_bytes == 1 {
+        0x100
+    } else if leading_zero_bytes == 2 {
+        0x10000
+    } else {
+        0x1000000
+    };
+    let shifted_chain_id_bytes: [u8; 4] = (chain_id * shift).to_be_bytes();
+    for i in 0..4 {
+        data[38 + i] = shifted_chain_id_bytes[i];
+    }
+
+    bind_param_commitment(data)
 }
 
 // The circuits count birthdates from 1900 so that they can reach before 1970.
@@ -116,20 +194,59 @@ fn country_weighted_sum(country: Alpha3CountryCode) -> u32 {
 }
 
 mod test {
+    use crate::app_attest::{APPLE_ROOT_KEY_HASH, IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH};
     use crate::commitments::{
-        age_commitment, birthdate_commitment, disclose_commitment, expiry_date_commitment,
-        issuing_country_exclusion_commitment, issuing_country_inclusion_commitment,
-        nationality_exclusion_commitment, nationality_inclusion_commitment,
+        age_commitment, bind_commitment, birthdate_commitment, disclose_commitment,
+        expiry_date_commitment, face_match_commitment, issuing_country_exclusion_commitment,
+        issuing_country_inclusion_commitment, nationality_exclusion_commitment,
+        nationality_inclusion_commitment, sanctions_commitment,
     };
     use crate::fixtures::{
-        AGE_18_COMMITMENT, BIRTHDATE_COMMITMENT, DISCLOSE_COMMITMENT, EXPIRY_DATE_COMMITMENT,
-        ISSUING_COUNTRY_EXCLUSION_COMMITMENT, ISSUING_COUNTRY_INCLUSION_COMMITMENT,
-        NATIONALITY_EXCLUSION_COMMITMENT, NATIONALITY_INCLUSION_COMMITMENT,
+        AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_BASE_COMMITMENT, BIND_COMMITMENT,
+        BIND_ETHEREUM_COMMITMENT, BIND_ETHEREUM_SEPOLIA_COMMITMENT, BIRTHDATE_COMMITMENT,
+        DISCLOSE_COMMITMENT, EXPIRY_DATE_COMMITMENT, FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT,
+        FACE_MATCH_IOS_STRICT_COMMITMENT, ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
+        ISSUING_COUNTRY_INCLUSION_COMMITMENT, NATIONALITY_EXCLUSION_COMMITMENT,
+        NATIONALITY_INCLUSION_COMMITMENT, SANCTIONS_COMMITMENT, SANCTIONS_ROOT,
     };
 
     #[test]
     fn age_matches_conformance_anchor() {
         assert(age_commitment(18, 0) == AGE_18_COMMITMENT);
+    }
+
+    #[test]
+    fn sanctions_matches_conformance_anchor() {
+        assert(sanctions_commitment(SANCTIONS_ROOT, true) == SANCTIONS_COMMITMENT);
+    }
+
+    #[test]
+    fn bind_matches_conformance_anchor() {
+        assert(bind_commitment(BIND_ACCOUNT, 679261766) == BIND_COMMITMENT);
+    }
+
+    #[test]
+    fn bind_writes_a_chain_id_in_as_few_bytes_as_utils() {
+        assert(bind_commitment(BIND_ACCOUNT, 1) == BIND_ETHEREUM_COMMITMENT);
+        assert(bind_commitment(BIND_ACCOUNT, 8453) == BIND_BASE_COMMITMENT);
+        assert(bind_commitment(BIND_ACCOUNT, 11155111) == BIND_ETHEREUM_SEPOLIA_COMMITMENT);
+    }
+
+    #[test(should_fail)]
+    fn bind_rejects_a_chain_id_longer_than_4_bytes() {
+        let _ = bind_commitment(BIND_ACCOUNT, 0x100000000);
+    }
+
+    #[test]
+    fn face_match_matches_conformance_anchors() {
+        assert(
+            face_match_commitment(APPLE_ROOT_KEY_HASH, 1, IOS_APP_ID_HASH, 0, 2, 0)
+                == FACE_MATCH_IOS_STRICT_COMMITMENT,
+        );
+        assert(
+            face_match_commitment(APPLE_ROOT_KEY_HASH, 1, IOS_APP_CLIP_APP_ID_HASH, 0, 1, 0)
+                == FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT,
+        );
     }
 
     #[test]

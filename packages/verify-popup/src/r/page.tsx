@@ -1,56 +1,103 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
+import { PoweredBy, useFlowPage } from "../shared/flow-card"
 import { Frame } from "../shared/frame"
-import { Primary } from "../shared/controls"
-import { ZKPASSPORT_WORDMARK } from "../shared/icons"
 import { LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
-import { useOpenApp } from "../shared/use-open-app"
+import { CLOSE_ON_RETURN_HASH, canOpenAppClip, useOpenApp } from "../shared/use-open-app"
 import { parseVerifyRequest } from "./request-link"
 import "../main.css"
 
 /**
  * Where a request link lands when the app did not take it. The OS hands the link straight to the
- * installed app, so whoever sees this page almost certainly has to install it first.
+ * installed app, so whoever sees this page almost certainly has no app yet.
  */
 export function RequestPage() {
+  useCloseOnReturn()
   const request = parseVerifyRequest(window.location.search)
   const requestUrl = request ? window.location.href : null
   const siteName = request?.serviceName || request?.domain || null
+  // In Safari, iOS offers the App Clip on this page through its own banner, which opens the full
+  // app instead when it is installed. The full app's link would only show an error without the app.
+  const [appClipBanner] = useState(() => requestUrl !== null && canOpenAppClip(requestUrl))
+  useFlowPage()
 
   return (
     <Frame>
       <div className="flow-card">
-        <p className="r-mark" dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }} />
         <div className="flow-stage">
           <div className="flow-step">
             <div className="flow-body">
               <div className="flow-main">
                 <div className="flow-heading">
                   <h1 className="flow-title">
-                    {siteName
-                      ? `${siteName} uses ZKPassport to verify your identity`
-                      : "Verify your identity privately with ZKPassport"}
+                    {appClipBanner
+                      ? siteName
+                        ? `${siteName} uses ZKPassport to verify your identity`
+                        : "Verify your identity privately with ZKPassport"
+                      : siteName
+                        ? `Get ZKPassport to verify for ${siteName}`
+                        : "Get ZKPassport to verify your identity"}
                   </h1>
                 </div>
-                <p className="flow-lede">
-                  {siteName ? "To continue, download" : "Download"} the free ZKPassport app. It
-                  reads your passport or ID securely and verifies your identity. Your ID data never
-                  leaves your phone, except the details you choose to share.
-                </p>
-                <StoreBadges requestUrl={requestUrl} />
-                {requestUrl ? <OpenAppPrompt requestUrl={requestUrl} siteName={siteName} /> : null}
+                {appClipBanner ? (
+                  <>
+                    <p className="flow-lede">
+                      Tap <strong>Open</strong> in the banner above, or{" "}
+                      <strong>Open App Clip</strong> on the card.
+                    </p>
+                    <div className="r-actions">
+                      <p className="r-note">
+                        No banner? Get the app. Your request will be waiting.
+                      </p>
+                      <StoreBadges requestUrl={requestUrl} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Why an app at all, in one sentence: it is what keeps the ID off any server */}
+                    <p className="flow-lede">
+                      The free app reads the chip in your passport or ID card and proves it on your
+                      phone, so your ID is never uploaded.
+                    </p>
+                    <div className="r-install">
+                      <StoreBadges requestUrl={requestUrl} />
+                      {requestUrl ? (
+                        <p className="r-note">Then open the app. Your request will be waiting.</p>
+                      ) : null}
+                    </div>
+                    {requestUrl ? <OpenAppPrompt requestUrl={requestUrl} /> : null}
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
+        <PoweredBy />
       </div>
     </Frame>
   )
 }
 
-function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName: string | null }) {
+/**
+ * The waiting page opened this tab. When the user comes back from the App Clip, the waiting page
+ * has the result, so this tab gets out of its way.
+ */
+function useCloseOnReturn() {
+  useEffect(() => {
+    if (window.location.hash !== CLOSE_ON_RETURN_HASH) return
+    let leftThePage = false
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") leftThePage = true
+      else if (leftThePage) window.close()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange)
+  }, [])
+}
+
+function OpenAppPrompt({ requestUrl }: { requestUrl: string }) {
   const [inAppBrowser] = useState(isInAppBrowser)
   // A probe inside an in-app browser always misses, even when the app is installed
   const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
@@ -66,26 +113,23 @@ function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName:
         </p>
         <LinkActions url={requestUrl} />
         <button type="button" className="scan-reveal" onClick={openApp}>
-          Already installed? Open the app
+          I already have the app
         </button>
       </div>
     )
   }
 
+  // Installing is the likely path here, so opening the app stays a quiet second choice
   return (
     <div className="r-actions">
-      <Primary busy={opening} onClick={openApp}>
-        {opening ? "Opening…" : "Already installed? Open the app"}
-      </Primary>
       {openState === "nothing-opened" ? (
         <p className="r-note" role="status">
-          App not found. Install it above, then tap Open again.
+          ZKPassport isn&rsquo;t on this phone yet. Get it above.
         </p>
       ) : null}
-      <p className="r-note">
-        Once you finish in the app, go back to {siteName ?? "the site that asked"} in your browser
-        to complete the request.
-      </p>
+      <button type="button" className="scan-reveal" disabled={opening} onClick={openApp}>
+        {opening ? "Opening…" : "I already have the app"}
+      </button>
     </div>
   )
 }

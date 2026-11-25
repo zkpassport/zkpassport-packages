@@ -1,0 +1,378 @@
+# ZKPassport Noir workspace
+
+A Noir workspace to streamline ZKPassport verifications from Aztec contracts and Noir projects. Its main components are:
+
+- The `ZKPassportRegistry` Aztec contract, whose canonical instance is the trusted authority for VKs and for the certificate, circuit, and sanctions roots. This is a port of ZKPassport's Ethereum on-chain registry/verification semantics onto Aztec's private/public split, which comes with different constraints and design tradeoffs.
+- The `zkpassport` crate, which implements network agnostic verification on Noir.
+- The `zkpassport_aztec_verifier` verification library, that lets any Aztec app privately verify a ZKPassport passport proof
+and mint a one-proof-per-passport uniqueness nullifier tailored to its needs.
+
+Example Aztec contracts that use them, and an end-to-end test on a local Aztec network, are in
+[zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples).
+
+The verifier accepts outer proofs of ZKPassport circuits 0.23.x made with `bb` 6.0.0, the version the
+Aztec 6.0.0 protocol runs. It only accepts proofs of a passport or ID card read from its chip
+(verification method 100). Proofs of other documents, such as Aadhaar or a device-attested camera
+read, need checks that the L1 verifier runs and this library does not, so it rejects them.
+
+## Workspace Layout
+
+Directories drop the `zkpassport_` prefix their packages carry, since the enclosing path
+already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkpassport` package.
+
+| Package | Type | Purpose | Key dependencies |
+|---|---|---|---|
+| `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions/Android attestation revocation) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_attestation_revocation_root_accepted`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
+| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), ZKPassport's app ids and the attestation root keys a face match is checked against (`app_attest.nr`, the L1 verifier's `AppAttest` constants), a face match's parameters, the parser for their capsule payload and the L1 verifier's policy for them (`face_match.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs, and `face_match_commitment`, which computes the circuits 0.23.0 face match commitment itself. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `app_attest`, `commitments`, `constants`, `disclosed_data`, `face_match` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose, sanctions and face match payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
+
+TXE integration tests are colocated in the contract crate (upstream noir-contracts style):
+`registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
+delayed visibility, and the private views. They compile/run only under `aztec test` (not
+bare `aztec-nargo test`).
+
+## Consumer quick-start
+
+The app-side (TS) half lives in the [`../ts`](../ts) companion package
+(`@zkpassport/aztec`). Use it to register the registry artifact with the PXE, assemble
+proof capsules, parsing disclosed data, etc. Pair it with the contract-side integration below.
+
+A consumer contract verifies a proof and mints its uniqueness nullifier in one call. Adapted from
+the `AgeGate` example in [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples),
+which passes its own registry so its tests can deploy one:
+
+```noir
+use zkpassport_aztec_verifier::query::Query;
+use zkpassport_aztec_verifier::verify::{
+    emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof_for_user,
+};
+
+global MIN_AGE: u8 = 18;
+
+// The domain this app's ZKPassport requests come from. The config accepts proofs from every
+// circuits release the library verifies.
+global SERVICE: ServiceConfig = ServiceConfig::new("example.com");
+
+/// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
+/// commitments = {age(18, 0), bind(user)}), burns the unique identifier — one claim per
+/// passport — and grants `user` a public soulbound badge. The bind commitment ties the
+/// proof itself to `user`, so anyone — a relayer included — may submit the transaction.
+#[external("private")]
+fn claim(user: AztecAddress) {
+    let query = Query::new().age_min(MIN_AGE);
+    // The capsule rides in the sender's PXE, so it is scoped to the sender. The proof must be
+    // bound to `user`.
+    let verified =
+        verify_zkpassport_proof_for_user(self.context, self.msg_sender(), user, SERVICE, query);
+    emit_uniqueness_nullifier(self.context, verified.unique_identifier);
+    // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
+    // passport proof behind it is private.
+    self.enqueue_self._grant_badge(user);
+}
+```
+
+`ServiceConfig::new` takes the domain as a hostname, and lowercases it as the ZKPassport SDK does; a
+URL, a port, a path or whitespace fails. `ServiceConfig::from_domain_hash` takes a domain already
+hashed with `scope_hash`, such as one a contract reads from storage. The rest defaults to proofs from every circuits release the
+library verifies, the whole domain, a non-salted unique identifier, proofs up to 7 days old (the
+ZKPassport SDK's default validity), and no mock documents. `.min_version(circuit_version(…))`,
+`.scope("…")`, `.unique_identifier_type(…)`, `.validity_period(seconds)` and `.dev_mode()` change
+them. In a global it is built at compile time, so an empty domain fails to compile.
+
+The minimum version is the oldest circuits release the app accepts, packed by
+`zkpassport_aztec_verifier::version::circuit_version(major, minor, patch)`. The default,
+`MIN_SUPPORTED_CIRCUIT_VERSION` (0.23.0), accepts every release the library can verify, so the app
+keeps working as ZKPassport ships patch releases. The proof capsule carries the release the proof was
+made with, and the registry only accepts the proof's vk under that release. The library also rejects
+any release outside 0.23.x, whose public inputs it may not parse; supporting a later minor release
+takes a library update.
+
+`verify_zkpassport_proof_for_user` asks for a proof bound to `user` and to the contract's network,
+by adding `bind_user_address(user)` to the query. Use it whenever the proof grants something to an
+account: a proof bound to no one can be submitted by anyone who sees it. `verify_zkpassport_proof`
+takes the query as it is.
+
+`verify_zkpassport_proof` uses ZKPassport's registry on the network, found by its L1 chain id and
+rollup version. In TXE and on a local network that is the local network registry, below. On a
+network without one, use `verify_zkpassport_proof_with_registry`.
+
+`Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
+`age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
+`nationality_in`, `nationality_out`, `issuing_country_in` and `issuing_country_out`;
+`bind_user_address`; `sanctions`, strict like the SDK's, and `non_strict_sanctions`; `face_match`
+and `strict_face_match`; a `disclose_*` method per MRZ field; and `disclose_full_name`, which
+requires the whole name where `disclose_name` accepts part of it.
+The proof must carry exactly the subproofs the query asks for, so the ZKPassport request that
+made it asks for the same checks.
+
+### Testing against the local network registry
+
+The local network registry is a `ZKPassportRegistry` at `LOCAL_NETWORK_REGISTRY_ADDRESS` in both
+TXE and a local network. Its admin and operator are the local network's test accounts 0 and 1.
+
+- TXE: `deploy_local_network_registry(&mut env, artifact_path)` from
+  `zkpassport_registry_contract::local_network_registry`, with the path `TestEnvironment::deploy`
+  takes to the compiled registry, then `seed_local_network_registry` with the roots and vk hash of
+  the test's proof. Advance time past the registry's delay before verifying.
+- Local network: deploy `ZKPassportRegistry` universally (deployer zero) with default public keys,
+  salt `LOCAL_NETWORK_REGISTRY_SALT` and constructor arguments `LOCAL_NETWORK_REGISTRY_ADMIN`,
+  `LOCAL_NETWORK_REGISTRY_OPERATOR`, `MODE_VALID_WITHIN_WINDOW` and
+  `LOCAL_NETWORK_REGISTRY_VALIDITY_WINDOW`, from test account 0, then seed it with the operator
+  (roots) and the admin (vk and version).
+
+Any change to the registry's bytecode or the Aztec toolchain moves the address.
+`ts/test/local-network-registry.test.ts` then fails with the new values for
+`registry_contract/src/local_network_registry.nr`.
+
+`verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
+a function argument.
+
+The client is responsible for stashing `vk ‖ proof ‖ public_inputs ‖ circuit_version` into
+the app's capsule slot (`zkpassport::constants::PROOF_CAPSULE_SLOT`, `= 1`) before sending
+the transaction. `assembleProofCapsule` in [`../ts`](../ts) builds it from the SDK's proof and
+the circuits release it reports.
+
+From `scripts/e2e/run-e2e.ts` in [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples):
+
+```typescript
+// Must match zkpassport::constants::PROOF_CAPSULE_SLOT.
+const PROOF_CAPSULE_SLOT = new Fr(1n)
+const VK_FIELDS = 115
+const PROOF_FIELDS = 458
+
+// ...
+
+const blob = [
+  ...FIXTURE.vkeyFields,
+  ...FIXTURE.proof,
+  ...FIXTURE.publicInputs,
+  FIXTURE.circuitVersionPacked,
+].map((h) => Fr.fromHexString(h))
+
+// The capsule is scoped to `user` — the sandbox account sending the transaction. The claim
+// itself goes to the fixture's bound address: the proof carries a bind commitment over it,
+// so the sender is effectively a relayer and the badge recipient needs no account here.
+const boundUser = AztecAddress.fromFieldUnsafe(Fr.fromHexString(FIXTURE.bindAddress))
+const capsule = (fields: Fr[]) =>
+  new Capsule(ageGate.address, PROOF_CAPSULE_SLOT, fields, user as AztecAddress)
+
+// ...
+
+const [{ receipt }, claimSecs] = await timed("claim (private tx, client-IVC proving)", () =>
+  ageGate.methods.claim(boundUser).send({ from: user, capsules: [capsule(blob)], wait: WAIT }),
+)
+```
+
+The capsule is consumed by `verify_zkpassport_proof`, which constrains every field (recursive verification, scope/nullifier
+checks, registry validity) derived from it, so a malformed or malicious capsule fails the proof rather than being trusted.
+
+A query that discloses a field needs the disclose payload too. The client stashes it
+(`mask ‖ bytes`, one value per field, from `assembleDiscloseCapsule`) into the app's capsule slot
+`zkpassport::constants::DISCLOSE_CAPSULE_SLOT` (`= 2`). `verify_zkpassport_proof` loads it once,
+checks that it discloses every field the query asks for, adds its commitment to the expected ones,
+and returns it in `VerifiedProof.disclosure`, the only copy the proof covers. `VerifiedProof`'s
+readers take one field out of it as the MRZ's bytes: `document_type()`, `issuing_country()`,
+`document_number()`, `nationality()`, `birthdate()`, `expiry_date()`, `gender()` and `name()`.
+Each fails unless the proof discloses the whole field, except `name()`, which needs only part of
+the name disclosed, unless the query asks for `disclose_full_name()`, and returns 0 for each byte
+the proof hides. All but the document type and issuing country also need the document type
+disclosed: the readers take the MRZ layout from it, a passport's when it starts with `P` and an ID
+card's otherwise. The ZKPassport SDK adds the document type to such requests from 0.20.1; a request
+from an older SDK must ask for it.
+
+A query that asks for sanctions screening needs the sanctions root the proof was made against, from
+`assembleSanctionsCapsule`, in `zkpassport::constants::SANCTIONS_CAPSULE_SLOT` (`= 3`).
+`verify_zkpassport_proof` loads it once, adds its commitment, checks it in the registry at the
+proof's date, and returns it in `VerifiedProof.sanctions_root`.
+
+A query that asks for a face match, `face_match()` or `strict_face_match()`, needs the six
+parameters the face match proof commits, in its order: the root key leaf, the environment, the app
+id hash, the integrity public key hash, the mode and the revocation root. The client stashes them,
+from `assembleFacematchCapsule` or the SDK's `getAztecVerifierParameters`, in
+`zkpassport::constants::FACE_MATCH_CAPSULE_SLOT` (`= 4`). `verify_zkpassport_proof` loads them
+once, accepts them as the L1 verifier's `isFaceMatchVerified` accepts a face match from any OS,
+adds their commitment, and returns them in `VerifiedProof.face_match`. That is a face match made
+in production, in the mode the query asks for, either:
+
+- by ZKPassport's iOS app or App Clip under Apple's App Attest root key, with no integrity key or
+  revocation root;
+- or by ZKPassport's Android app under one of Google's root keys, with ZKPassport's Play Integrity
+  key, and a revocation root the registry's `assert_attestation_revocation_root_accepted` accepts
+  when the transaction lands: the empty tree's root only while the registry has no attestation
+  revocation root, any other by the registry's validation mode. It checks the root at the anchor
+  block, and keeps the transaction from landing after a superseded root's window ends.
+
+`zkpassport::app_attest` holds L1's app ids and root keys. The query takes no OS like L1's `os`
+argument; `FaceMatch::is_android` tells the two apart.
+
+The ZKPassport SDK only makes a salted unique identifier with a strict face match, so an app that
+requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
+`strict_face_match()`. The library doesn't pair the two itself, as L1 doesn't.
+
+## Trust considerations
+
+1. **ZKPassportRegistry is the source of truth.** Certificate, circuit, sanctions and Android
+   attestation revocation root sets are maintained by the registry's operator account, and it
+   trails the Ethereum version of the registry. A revocation reaches Aztec after that delay too:
+   once L1 publishes its first attestation revocation root, Aztec keeps accepting Android face
+   matches under the empty tree's root until the operator publishes it and the delay has passed.
+2. **All policy changes go through `DelayedPublicMutable` with a 24h delay, including
+   revocation.** `set_revocation_status`, `set_root_validation_mode`, `set_validity_window`,
+   `pause`/`unpause`, and the accepted-VK/version-status/OPRF-pubkey setters all call
+   `schedule_value_change(..)`. A revoked or newly-invalid root therefore stays usable by
+   private verifiers for up to 24h after the change lands. This is the same latency Aztec's
+   `DelayedPublicMutable` privacy-optimal delay already implies, and it matches the 24h window
+   the L1 registries run today.
+3. **TXE/`aztec-nargo test` no-op real recursion.** The `verify_proof_with_type`/
+   `verify_honk_proof` opcode is not enforced under TXE simulation, so `aztec test` proves
+   control flow and storage semantics only. **`bb verify` (from the `test-harness/`) and the local
+   network based e2e in [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples)
+   are the only checks that exercise real proof verification**: the
+   harness via native `bb prove`/`bb verify` on the wrapped core library, the e2e via a real
+   client-IVC proof produced by the local PXE.
+4. **Sanctions screening is opt-in, per query.** The registry's mandatory verify path
+   (`assert_proof_valid`, called from `verify_zkpassport_proof`) only checks the certificate and
+   circuit registries. A query with `sanctions()` or `non_strict_sanctions()` also has
+   `verify_zkpassport_proof` check the sanctions root with the registry's
+   `assert_sanctions_root_valid` view, at the proof's date.
+5. **The library verifies the *proof*, binding it to a claimant is the app's job.**
+   `verify_zkpassport_proof` takes `capsule_scope: AztecAddress` purely as the PXE capsule
+   scope (the sender's account). No constraint ties the verified proof to that scope, to
+   `msg_sender`, or to anything caller-specific. A ZKPassport proof capsule
+   (`vk ‖ proof ‖ public_inputs ‖ circuit_version`) is otherwise **bearer authorization**: whoever holds the blob
+   (leaked for support, restored from a backup, handed to a third-party service) can load it
+   into their own PXE under their own account and successfully verify it. Alternatively, apps can
+   add `bind_user_address(user)` to the query and have the ZKPassport request that produced the
+   proof bind that same address. Then a leaked capsule
+   authorizes nothing for anyone else, and any relayer may submit the transaction on the bound
+   user's behalf. The `claim` function of the `AgeGate` example in
+   [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples) is the pattern to copy.
+6. **A bind ties a proof to an address and a network, not to a deployment.** `bind_user_address`
+   covers the user's address and the network the contract runs on, as a chain id: the rollup
+   version it reads from its context, so a proof bound for Aztec testnet doesn't verify on mainnet.
+   A rollup version is the first 4 bytes of a hash of the rollup's configuration and genesis state,
+   so a network deployed with the same configuration and genesis state, on any L1, shares it.
+   It verifies against any deployment of an app on that network whose registry accepts its roots
+   and VK, while the proof is within its validity period. Nullifiers are siloed per contract, so
+   the same passport can claim once per deployment. A proof whose bound data carries anything else,
+   such as custom data, does not verify, because the bind commitment covers every entry.
+7. **The admin can update the registry's code in place.** `update_to(new_class_id)` switches the
+   registry to another published contract class at the same address, keeping its storage and roles,
+   once the contract instance registry's update delay has passed (`set_update_delay`; one day by
+   default). Apps keep the registry address across updates; their PXEs need the new artifact.
+8. **Roots are checked at the date the proof carries, which the prover picks.**
+   `verify_zkpassport_proof` accepts a `current_date` from `validity_period` before the anchor
+   block's timestamp to `CURRENT_DATE_MAX_SKEW` (one hour) after it, and the sender's PXE picks an
+   anchor block up to `MAX_TX_LIFETIME` (one day) older than the block that includes the
+   transaction. Certificate, circuit and sanctions roots are checked at that date. A transaction can
+   therefore land up to `validity_period` plus a day after the date its proof was screened at, and
+   the sanctions root it was screened against may have been replaced up to the registry's validity
+   window before that date. Apps that need recent screening set a short `validity_period`.
+   An Android face match's revocation root is the exception: as on L1, it must be accepted when
+   the transaction lands, not at the proof's date.
+9. **Face matches are checked against attestation keys and app ids pinned in the library.**
+   `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants, which
+   `test-harness/fixture-conformance.test.ts` holds it to. The registry only checks an Android
+   face match's revocation root. A new ZKPassport app or attestation root key takes a library
+   update, as it takes a verifier update on L1.
+
+## Running the tests
+
+All tests use the Aztec toolchain version in `packages/aztec/.aztecrc`, installed the same way CI
+does (check out `.github/workflows/aztec.yml` for more details). From `packages/aztec/`:
+
+```bash
+aztec-up install "$(cat .aztecrc)"
+# or, without an existing aztec-up:
+curl -fsSL "https://install.aztec-labs.com/$(cat .aztecrc)/install" | bash
+
+# In a new shell, put that version on PATH. (`aztec-up use` also works, but switches the
+# default version for every other project too.)
+eval "$(aztec-up env)"
+```
+
+First, the `noir/` tests:
+
+```bash
+# 1. Registry contract unit tests (pure logic: root_validation, guards) — no TXE needed
+aztec-nargo test --package zkpassport_registry_contract
+
+# 2. Core library unit tests (parse, commitment fixtures) — no TXE needed
+aztec-nargo test --package zkpassport
+
+# 3. TXE integration tests (colocated in the contract crates) — REQUIRES `aztec test`, not
+#    bare `aztec-nargo test`; these tests need the TXE server that `aztec test` starts (oracle
+#    capsules, contract deployment, the embedded fixture, warp cheatcodes).
+aztec test
+```
+
+Then, the native `bb prove`/`bb verify` harness, which enforces real recursive verification. It
+runs from `test-harness/` (a sibling of `noir/` under `packages/aztec/`):
+
+```bash
+./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
+# Negative controls: each exits 0 only when bb rejects the tampered proof
+./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof
+./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-public-input
+```
+
+The script resolves the toolchain at `$AZTEC_HOME/versions/<version in .aztecrc>`, where
+`AZTEC_HOME` is the Aztec root as `aztec-up` uses it (default `~/.aztec`); set `AZTEC` to a version
+directory to use another one.
+
+The end-to-end test, a full deploy and a real client-IVC `claim()` on a local Aztec network, is in
+[zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples).
+
+**The workspace must be compiled before anything in `scripts/` runs.**
+`scripts/artifacts/ZKPassportRegistry.ts` is a tracked file that `import`s
+`noir/target/<contract>.json`, and `noir/target/` is gitignored. From a fresh clone it fails at
+module resolution unless you compile first (and re-run `aztec codegen` if the ABI changed, so the
+tracked `.ts` file matches the freshly compiled JSON):
+
+```bash
+# From noir/:
+aztec compile
+# Only if the contract ABI changed since the tracked scripts/artifacts/*.ts were generated:
+aztec codegen target -o ../scripts/artifacts
+```
+
+## Fixtures
+
+`test-harness/fixtures/*.json` and `core/src/fixtures/proof.nr` embed real
+ZKPassport outer proofs whose `current_date` public input is checked against the
+Aztec anchor-block timestamp with a 7-day `validity_period` (`ServiceConfig.validity_period`,
+see the consumer quick-start above).
+
+The fixtures are deliberately **future-dated to 2050-01-01**
+(`FIXTURE_NOW` in `test-harness/generate-proof-fixtures.ts`). This is a workaround because the TXE
+and sandbox clocks can only move forward. A wall-clock-dated fixture would expire ~6 days after
+generation, while the future-dated one stays verifiable until 2050, the TXE tests and the e2e in
+[zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples) warp their clocks forward
+into its freshness window.
+
+A pair of assertions (`proof dated in the future` / `proof too old`) are enforced by
+`zkpassport_aztec_verifier::verify::verify_zkpassport_proof`, checked against the private-context anchor
+block timestamp. Note `zkpassport::verify::verify_outer_proof_core` does **not** check
+freshness itself, that requires an Aztec `PrivateContext` to provide a notion of `now`.
+
+Regenerate via `test-harness/generate-proof-fixtures.sh [disclose|age]`. The `age` run also rewrites the
+embedded TXE fixture, `core/src/fixtures/proof.nr` (run `aztec-nargo fmt` over `noir/` afterwards), and a
+new disclose fixture needs its public inputs copied into `FIXTURE_PUBLIC_INPUTS` in `core/src/fixtures.nr`,
+which the conformance test checks. Fixture generation proves the released circuits of the
+`test-harness/circuits` submodule's version (its `package.json`), downloaded from the circuits CDN,
+so each fixture's circuit registry root is that release's root and its outer vk hash is the one the
+release publishes; the passport and its certificates are synthetic. It proves them with `bb` 6.0.0
+from the 6.0.0 toolchain, because the Aztec protocol only accepts proofs made with that `bb`'s Honk
+transcript. Everywhere else in this workspace the 6.0.0 toolchain is used.
+
+## Toolchain & dependency pins
+
+| Component | Pin | Notes |
+|---|---|---|
+| Aztec toolchain | `v6.0.0` (`aztec-nargo` 1.0.0-rc.3, `aztec test`, `bb` 6.0.0) | Everything under `noir/` and `scripts/` compiles/tests/runs against this. Pinned in `packages/aztec/.aztecrc`, which CI reads, failing if an `aztec-nr` or `bb_proof_verification` tag below names another release. Installed via `aztec-up install "$(cat .aztecrc)"` (lands in `~/.aztec/versions/<version>`). |
+| `aztec-nr` (the `aztec` crate) | git `https://github.com/aztec-labs-eng/aztec-nr`, tag `v6.0.0`, dir `aztec` | Depended on by `zkpassport_registry_contract` and `zkpassport_aztec_verifier`, which share one `aztec` source. |
+| `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v6.0.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport`'s recursive-verification dependency, at the barretenberg release the 6.0.0 toolchain ships. |
+| `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport` and `zkpassport_aztec_verifier`. |
+| ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0` (= `327d19eb`, release 0.22.0) for the libs; submodule at `4d90f1f8` (release 0.23.0) for the fixtures | `zkpassport`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `compare_date_lib`, `inclusion_check_country_lib`, `exclusion_check_country_lib`, `exclusion_check_sanctions_lib`. Their commitments are the same in 0.23.0, which the conformance anchors check. The face match commitment is not: 0.23.0 added the attestation revocation root to it, so `face_match_commitment` computes it without the `facematch` lib. The proof fixtures are generated from the `test-harness/circuits` **submodule** and prove the circuits released at its version. Only fixture regeneration (`test-harness/generate-proof-fixtures.sh`) needs the submodule initialized — building/testing the workspace does not. |
+| `@zkpassport/utils` (TS) | `0.40.0-beta.3` (the `circuits` submodule's pin) | `test-harness/generate-proof-fixtures.ts` imports it from the `circuits` submodule's own node_modules. `test-harness/fixture-conformance.test.ts` reads the conformance vectors from this repo's `packages/zkpassport-utils/conformance/vectors.json`. Not a dependency of `scripts/` or any Noir package. |

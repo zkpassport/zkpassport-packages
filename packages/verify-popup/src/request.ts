@@ -15,6 +15,13 @@ import { readSession, updateSession, type Session } from "./session"
 // Stops at `waiting`: everything after the phone joins is a screen, not a state
 export type RequestState = "preparing" | "connecting" | "waiting"
 
+// Development: verify in this page against circuits served from a local machine (the circuits
+// repo's `serve-circuits`), which the hosted verification API cannot know about. Dev builds only,
+// so a stray variable can't switch a production build to local verification
+const LOCAL_CIRCUITS_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_CIRCUITS_URL as string | undefined) || undefined
+  : undefined
+
 export type QuerySource = Query | ((builder: QueryBuilder) => QueryBuilderResult)
 
 export type RequestOptions = PopupRequestConfig & {
@@ -30,6 +37,7 @@ export type RequestConfig = {
 }
 
 export type RequestCallbacks = {
+  onCreated?: (request: QueryBuilderResult, info: { resumed: boolean }) => void
   onReceived?: () => void
   onProving?: () => void
   onProof?: (proof: ProofResult) => void
@@ -41,6 +49,7 @@ export type RequestCallbacks = {
   onError?: (message: string) => void
   /** The bridge gave up. Unlike other failures, resuming can still recover a finished proof. */
   onConnectionLost?: () => void
+  onPhoneConnected?: (connected: boolean) => void
 }
 
 export type RequestHandle = {
@@ -53,6 +62,8 @@ export type RequestHandle = {
   /** Try again on the same bridge, keeping whatever the phone has already sent. */
   resume: () => void
 }
+
+const PHONE_RECHECK_MS = 15 * 1000
 
 export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): RequestHandle {
   const [state, setState] = useState<RequestState>("preparing")
@@ -73,6 +84,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
     const sdk = new ZKPassport(domain)
     let cancelled = false
     let requestId: string | null = null
+    let phoneRecheck: ReturnType<typeof setTimeout> | undefined
 
     // The old keypair brings the old bridge topic with it, so the phone is still talking to this
     // request. A plain retry asks for a new one instead.
@@ -99,12 +111,13 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         validity: options.validity,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
+        allowedVerificationMethods: options.allowedVerificationMethods,
         bridgeUrl: options.bridgeUrl,
         cloudProverUrl: options.cloudProverUrl,
-        verifierMode: options.verifierMode ?? "api",
+        verifierMode: options.verifierMode ?? (LOCAL_CIRCUITS_URL ? "local" : "api"),
+        config: LOCAL_CIRCUITS_URL ? { circuitsUrl: LOCAL_CIRCUITS_URL } : undefined,
         keyPairOverride: resumeWith,
         replayMissedMessages: !!resumeWith,
-        overrides: options.appClip ? { appClip: true } : undefined,
       })
       .then((builder) => {
         const built =
@@ -130,6 +143,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
           const keyPair = sdk.getRequestKeyPair(built.requestId)
           if (keyPair) updateSession(session, { keyPair })
         }
+        callbacksRef.current.onCreated?.(built, { resumed: !!resumeWith })
 
         built.onBridgeConnect(() => setState((s) => (s === "waiting" ? s : "waiting")))
         built.onBridgeConnectionLost(() =>
@@ -153,6 +167,17 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         if (built.requestReceived()) callbacksRef.current.onReceived?.()
         else setState(built.isBridgeConnected() ? "waiting" : "connecting")
 
+        if (resumeWith) {
+          const checkPhone = () => {
+            sdk.isPhoneConnected(built.requestId).then((connected) => {
+              if (cancelled) return
+              callbacksRef.current.onPhoneConnected?.(connected)
+              if (!connected) phoneRecheck = setTimeout(checkPhone, PHONE_RECHECK_MS)
+            })
+          }
+          checkPhone()
+        }
+
         setUrl(built.url)
         try {
           setQrSvg(renderQrSvg(built.url))
@@ -168,6 +193,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
 
     return () => {
       cancelled = true
+      clearTimeout(phoneRecheck)
       if (requestId) sdk.cancelRequest(requestId)
     }
   }, [attempt])
@@ -179,7 +205,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
 }
 
 // ECC "Q" leaves room for the mark overlaid at the centre
-function renderQrSvg(url: string): string {
+export function renderQrSvg(url: string): string {
   const qr = QRCode.create(url, { errorCorrectionLevel: "Q" })
   const size = qr.modules.size
   const data = qr.modules.data

@@ -1,0 +1,31 @@
+{
+  "name": "scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "format": "prettier -c -w deployment",
+    "account:testnet": "tsx deployment/create-schnorr-account.ts testnet",
+    "account:mainnet": "tsx deployment/create-schnorr-account.ts mainnet",
+    "deploy:testnet": "tsx deployment/deploy-testnet.ts",
+    "deploy:mainnet": "tsx deployment/deploy-mainnet.ts",
+    "seed:testnet": "tsx deployment/seed-registry.ts testnet",
+    "seed:mainnet": "tsx deployment/seed-registry.ts mainnet"
+  },
+  "dependencies": {
+    "@aztec-labs/accounts": "6.0.0",
+    "@aztec-labs/aztec.js": "6.0.0",
+    "@aztec-labs/constants": "6.0.0",
+    "@aztec-labs/ethereum": "6.0.0",
+    "@aztec-labs/noir-contracts.js": "6.0.0",
+    "@aztec-labs/stdlib": "6.0.0",
+    "@aztec-labs/wallets": "6.0.0",
+    "@zkpassport/registry": "0.14.0",
+    "@zkpassport/utils": "0.39.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

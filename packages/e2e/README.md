@@ -66,3 +66,16 @@ npx tsx src/ts/scripts/circuit-packager.ts
 # Here
 LOCAL_CIRCUITS_DIR=<circuits checkout>/target/packaged bun run test:e2e
 ```
+
+## Scripts
+
+`scripts/oprf-verify-request.ts` writes the request body the OPRF nodes send to the proof verifier's
+`/verify-oprf-auth` route: the DSC, ID data, integrity, facematch and oprf_auth proofs of John's
+mock passport, proved against the Sepolia registries, and the blinded unique identifier. The
+facematch proof uses `fixtures/ios-facematch-attestation.json`, an attestation the production iOS
+app made for a passport with the mock passports' DG2 hash. `CIRCUIT_VERSION` sets the circuit
+version.
+
+```sh
+bun scripts/oprf-verify-request.ts <output.json>
+```

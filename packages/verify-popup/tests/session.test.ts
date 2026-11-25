@@ -114,6 +114,22 @@ describe("openSession", () => {
     expect(stored.has(PREFIX + "live")).toBe(true)
   })
 
+  test("drops a verification idle for five minutes and keeps one that is still moving", () => {
+    const stored = setupWindow("?s=abc-123")
+    const minutesAgo = (minutes: number) => Date.now() - minutes * 60 * 1000
+    store("idle", { createdAt: minutesAgo(6), configuration: CONFIGURATION })
+    store("moving", {
+      createdAt: minutesAgo(20),
+      updatedAt: minutesAgo(1),
+      configuration: CONFIGURATION,
+    })
+
+    openSession()
+
+    expect(stored.has(PREFIX + "idle")).toBe(false)
+    expect(stored.has(PREFIX + "moving")).toBe(true)
+  })
+
   test("drops a record it cannot read rather than giving up on the rest", () => {
     const stored = setupWindow("?s=abc-123")
     stored.set(PREFIX + "unreadable", "{ not json")

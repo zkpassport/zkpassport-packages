@@ -99,7 +99,7 @@ function render(target: RenderTarget, options: VerifyWithZKPassportOptions): Ver
     }
     button.className = "zkp-verify-button"
     button.dataset.status = state.status
-    button.disabled = isButtonDisabled(state.status)
+    button.disabled = isButtonDisabled(state.status, state.resumable)
     button.title = buttonTooltip(state.status, state.resumable)
     defaultState.label.textContent = buttonLabel(style.label, state.resumable)
   }
@@ -132,3 +132,9 @@ export type {
   VerificationStatus,
 } from "../verification"
 export type { VerifyWithZKPassportOptions } from "../verify-button"
+export {
+  VerificationMethod,
+  VerificationTier,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  type AllowedVerificationMethod,
+} from "@zkpassport/sdk"

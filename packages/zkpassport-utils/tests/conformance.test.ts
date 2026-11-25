@@ -6,12 +6,15 @@ import vectors from "../conformance/vectors.json"
 import { ProofType } from "../src/circuits"
 import { getAgeParameterCommitment } from "../src/circuits/age"
 import { formatBoundData, getBindParameterCommitment } from "../src/circuits/bind"
+import { getIdFromChain } from "../src/utils"
 import { getCountryParameterCommitment } from "../src/circuits/country"
 import { getDateParameterCommitment } from "../src/circuits/date"
 import { getDiscloseParameterCommitment } from "../src/circuits/disclose"
+import { getFacematchParameterCommitment } from "../src/circuits/facematch"
 
 type Vector = { name: string; proofType: string; params: Record<string, any>; commitment: string }
 const byType = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.proofType, v]))
+const byName = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.name, v]))
 const hex = (b: bigint) => "0x" + b.toString(16).padStart(64, "0")
 
 describe("Conformance vectors", () => {
@@ -19,9 +22,16 @@ describe("Conformance vectors", () => {
     expect(vectors.vectors.map((v) => v.proofType).sort()).toEqual([
       "age",
       "bind",
+      "bind",
+      "bind",
+      "bind",
+      "bind",
       "birthdate",
       "disclose",
       "expiry_date",
+      "facematch",
+      "facematch",
+      "facematch",
       "issuing_country_exclusion",
       "issuing_country_inclusion",
       "nationality_exclusion",
@@ -48,8 +58,23 @@ describe("Conformance vectors", () => {
   })
 
   test("bind", async () => {
-    const { params, commitment } = byType.bind
+    const { params, commitment } = byName.bind_user_address
     const data = formatBoundData({ user_address: params.userAddress })
+    const result = await getBindParameterCommitment(data, params.maxLength)
+    expect(hex(result)).toEqual(commitment)
+  })
+
+  // Chain ids written in 1, 2, 3 and 4 bytes. An Aztec network's chain id is its rollup version.
+  test.each([
+    "bind_user_address_ethereum",
+    "bind_user_address_base",
+    "bind_user_address_ethereum_sepolia",
+    "bind_user_address_aztec_testnet",
+  ])("%s", async (name) => {
+    const { params, commitment } = byName[name]
+    expect(getIdFromChain(params.chain)).toEqual(params.chainId)
+
+    const data = formatBoundData({ user_address: params.userAddress, chain: params.chain })
     const result = await getBindParameterCommitment(data, params.maxLength)
     expect(hex(result)).toEqual(commitment)
   })
@@ -65,6 +90,24 @@ describe("Conformance vectors", () => {
     const result = await getCountryParameterCommitment(proofType, params.countries, sorted)
     expect(hex(result)).toEqual(commitment)
   })
+
+  // From ZKPassport's iOS app and its App Clip, which commit no integrity key or revocation root,
+  // and from its Android app, under Google's RSA root key and the empty revocation tree
+  test.each(["facematch_ios_strict", "facematch_ios_app_clip_regular", "facematch_android_strict"])(
+    "%s",
+    async (name) => {
+      const { params, commitment } = byName[name]
+      const result = await getFacematchParameterCommitment(
+        BigInt(params.rootKeyLeaf),
+        BigInt(params.environment),
+        BigInt(params.appIdHash),
+        BigInt(params.facematchMode),
+        BigInt(params.integrityPublicKeyHash),
+        BigInt(params.revocationRoot),
+      )
+      expect(hex(result)).toEqual(commitment)
+    },
+  )
 
   test.each([
     ["birthdate", ProofType.BIRTHDATE],

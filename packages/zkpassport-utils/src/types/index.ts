@@ -1,3 +1,5 @@
+import type { AllowedVerificationMethod, VerificationMethod } from "./verification-method"
+export * from "./verification-method"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { Alpha2Code, Alpha3Code } from "i18n-iso-countries"
@@ -28,6 +30,8 @@ export type DataGroupInfo = {
 
 export type PassportViewModel = {
   mrz: string
+  // How the ID was verified; absent on records saved before the field existed (a chip read)
+  verificationMethod?: VerificationMethod
   // First name (without middle names and secondary given names) and last name
   name: string
   // First name (including middle names and secondary given names) and last name
@@ -54,6 +58,13 @@ export type PassportViewModel = {
 
   sod: SOD
   appVersion: string
+  aadhaar?: AadhaarCredential
+}
+
+export type AadhaarCredential = {
+  signedData: string
+  signature: string
+  publicKey: string
 }
 
 export type RSACertificate = {
@@ -155,7 +166,7 @@ export type IDCredentialValue<T extends IDCredential> = T extends "nationality" 
   : T extends "gender"
     ? "male" | "female"
     : T extends "document_type"
-      ? "passport" | "id_card" | "residence_permit" | "other"
+      ? "passport" | "id_card" | "residence_permit" | "driving_license" | "other"
       : T extends "age"
         ? number
         : T extends "birthdate" | "expiry_date"
@@ -312,6 +323,8 @@ export type FacematchCommittedInputs = {
   appIdHash: string
   integrityPubkeyHash: string
   mode: FacematchMode
+  /** Android only: the attestation revocation tree root the chain was checked against */
+  revocationRoot?: string
 }
 
 export type SupportedChain =
@@ -327,6 +340,7 @@ export type SupportedChain =
   | "linea"
   | "world_chain"
   | "robinhood"
+  | "aztec"
   // Testnets
   | "ethereum_sepolia"
   | "base_sepolia"
@@ -337,6 +351,7 @@ export type SupportedChain =
   | "scroll_sepolia"
   | "linea_sepolia"
   | "world_chain_sepolia"
+  | "aztec_testnet"
   | "local"
 
 export type BoundData = {
@@ -362,6 +377,15 @@ export type CommittedInputs =
   | BindCommittedInputs
   | SanctionsCommittedInputs
   | FacematchCommittedInputs
+
+/** The base circuit of a Tier 2 verification, an ID read by camera attested by the device */
+export type AttestedIdCircuitName = "attested_id_ios" | `attested_id_android_${string}`
+
+/** Where a proof result keeps the committed inputs of its attested_id proof */
+export type AttestedIdCommittedInputsKey = "attested_id_ios" | "attested_id_android"
+
+/** What the attested_id proof commits to; the same attestation parameters as facematch */
+export type AttestedIdCommittedInputs = FacematchCommittedInputs
 
 export type DisclosureCircuitName =
   | "disclose_bytes"
@@ -393,7 +417,7 @@ export type ProofResult = {
   version?: `${number}.${number}.${number}`
   name?: string
   committedInputs?: {
-    [circuitName in DisclosureCircuitName]?: CommittedInputs
+    [circuitName in DisclosureCircuitName | AttestedIdCommittedInputsKey]?: CommittedInputs
   }
   // Index of the proof in the proof set
   index?: number
@@ -428,6 +452,13 @@ export type QRCodeData = {
   uniqueIdentifierType: NullifierType | null
   oprfKeyId: string | null
   returnDeepLink: string | null
+  // The credentials the service accepts; null means the default policy
+  allowedVerificationMethods: AllowedVerificationMethod[] | null
+  // What the user said on the hosted page about the document they will add, if asked
+  issuingCountry?: string | null
+  documentType?: string | null
+  issueYear?: number | null
+  hasChip?: boolean | null
 }
 
 export interface JsonRpcRequest {

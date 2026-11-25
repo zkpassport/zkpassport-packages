@@ -1,6 +1,7 @@
 use crate::constants::{
     NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
-    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_FIELDS, VK_FIELDS,
+    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_FIELDS, VERIFICATION_METHOD_ICAO_CHIP,
+    VK_FIELDS,
 };
 use crate::parse::{parse_public_inputs, PublicInputs};
 use bb_proof_verification::verify_honk_proof;
@@ -11,13 +12,16 @@ pub struct VerifiedOuterProof<let K: u32> {
     pub vk_hash: Field,
 }
 
-/// Does NOT check: registry roots, vk acceptance, OPRF binding, or freshness (needs a PrivateContext).
+/// Verifies a circuits 0.23.x outer proof (K + 6 public inputs) of an ICAO chip read.
+///
+/// Does NOT check: the circuits version, registry roots, vk acceptance, OPRF binding, or freshness
+/// (needs a PrivateContext).
 pub fn verify_outer_proof_core<let K: u32>(
     vk: [Field; VK_FIELDS],
     proof: [Field; PROOF_FIELDS],
-    public_inputs: [Field; K + 5],
+    public_inputs: [Field; K + 6],
+    domain: Field,
     scope: Field,
-    subscope: Field,
     dev_mode: bool,
     expected_commitments: [Field; K - 3],
 ) -> VerifiedOuterProof<K> {
@@ -28,8 +32,15 @@ pub fn verify_outer_proof_core<let K: u32>(
 
     let parsed = parse_public_inputs::<K>(public_inputs);
 
-    assert(parsed.service_scope == scope, "wrong service scope");
-    assert(parsed.service_subscope == subscope, "wrong service subscope");
+    assert(parsed.domain == domain, "wrong service domain");
+    assert(parsed.scope == scope, "wrong service scope");
+
+    // Other methods (Aadhaar, a device-attested capture) need checks L1 runs and this library
+    // doesn't, such as the attestation's revocation root.
+    assert(
+        parsed.verification_method == VERIFICATION_METHOD_ICAO_CHIP,
+        "unsupported verification method",
+    );
 
     let nt = parsed.nullifier_type;
     let is_standard = (nt == NULLIFIER_TYPE_NON_SALTED)
@@ -72,12 +83,30 @@ mod test {
     // NOTE: nargo test no-ops the recursion opcode — these tests cover parsing/policy/commitment
     // logic only. Real recursion coverage lives in test-harness/test-recursive-verification.sh (bb verify).
 
+    #[test(should_fail_with = "wrong service domain")]
+    fn wrong_domain_rejected() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0xbad, 0, false, [pis[5]]);
+    }
+
     #[test(should_fail_with = "wrong service scope")]
     fn wrong_scope_rejected() {
         let vk = [0; 115];
         let proof = [0; 458];
         let pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0xbad, 0, false, [pis[5]]);
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0xbad, false, [pis[5]]);
+    }
+
+    // Aadhaar (101) and a device-attested capture (200, 201) need checks this library lacks
+    #[test(should_fail_with = "unsupported verification method")]
+    fn non_chip_verification_method_rejected() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
+        pis[9] = 200;
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
     }
 
     #[test(should_fail_with = "param commitment mismatch")]
@@ -137,16 +166,17 @@ mod test {
     fn accepts_swapped_commitments() {
         let vk = [0; 115];
         let proof = [0; 458];
-        let mut pis = [0; 10];
-        for i in 0..8 {
+        let mut pis = [0; 11];
+        for i in 0..5 {
             pis[i] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[i];
         }
-        // K=5 layout: [5], [6] are the two param commitments; tail moves to [7..9].
+        // K=5 layout: [5], [6] are the two param commitments; tail moves to [7..10].
         pis[5] = 0xaaaa;
         pis[6] = 0xbbbb;
         pis[7] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[6]; // nullifier_type
         pis[8] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[7]; // scoped_nullifier
         pis[9] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[8]; // oprf_pk_hash
+        pis[10] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[9]; // verification_method
         let out = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xbbbb, 0xaaaa]);
         assert(out.parsed.param_commitments[0] == 0xaaaa);
         assert(out.parsed.param_commitments[1] == 0xbbbb);
@@ -158,8 +188,8 @@ mod test {
     fn rejects_duplicate_expectation_over_single_slot() {
         let vk = [0; 115];
         let proof = [0; 458];
-        let mut pis = [0; 10];
-        for i in 0..8 {
+        let mut pis = [0; 11];
+        for i in 0..5 {
             pis[i] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[i];
         }
         pis[5] = 0xaaaa;
@@ -167,6 +197,7 @@ mod test {
         pis[7] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[6];
         pis[8] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[7];
         pis[9] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[8];
+        pis[10] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[9];
         let _ = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xaaaa, 0xaaaa]);
     }
 

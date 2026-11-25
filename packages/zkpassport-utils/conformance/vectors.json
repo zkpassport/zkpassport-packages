@@ -1,5 +1,5 @@
 {
-  "description": "Conformance vectors for the ZKPassport parameter-commitment scheme (Poseidon2 variant). Every implementation of the scheme must reproduce each commitment from its params: this package's TS functions (tests/conformance.test.ts), the circuits repo's Noir libs, and downstream verifiers such as zkpassport.nr's commitment wrappers. Country lists are padded to 200 entries: inclusion lists keep their order, exclusion lists are sorted ascending first. Dates are Unix seconds, 0 meaning no bound; birthdate bounds are shifted to the circuits' 1900 epoch before hashing.",
+  "description": "Conformance vectors for the ZKPassport parameter-commitment scheme (Poseidon2 variant). Every implementation of the scheme must reproduce each commitment from its params: this package's TS functions (tests/conformance.test.ts), the circuits repo's Noir libs, and downstream verifiers such as zkpassport.nr's commitment wrappers. Country lists are padded to 200 entries: inclusion lists keep their order, exclusion lists are sorted ascending first. Dates are Unix seconds, 0 meaning no bound; birthdate bounds are shifted to the circuits' 1900 epoch before hashing. Face match params are listed in the order they are hashed; iOS commits a zero integrity public key hash and revocation root; Android commits ZKPassport's Play Integrity key hash and the attestation revocation root its attestation was checked against.",
   "vectors": [
     {
       "name": "age_18_plus",
@@ -25,6 +25,50 @@
         "maxLength": 509
       },
       "commitment": "0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970"
+    },
+    {
+      "name": "bind_user_address_ethereum",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "ethereum",
+        "chainId": 1,
+        "maxLength": 509
+      },
+      "commitment": "0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784"
+    },
+    {
+      "name": "bind_user_address_base",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "base",
+        "chainId": 8453,
+        "maxLength": 509
+      },
+      "commitment": "0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3"
+    },
+    {
+      "name": "bind_user_address_ethereum_sepolia",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "ethereum_sepolia",
+        "chainId": 11155111,
+        "maxLength": 509
+      },
+      "commitment": "0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76"
+    },
+    {
+      "name": "bind_user_address_aztec_testnet",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "aztec_testnet",
+        "chainId": 679261766,
+        "maxLength": 509
+      },
+      "commitment": "0x260abafd2a3531d54ac6b4595a8a231bee885906858d3fa97d9dc09e8121c69e"
     },
     {
       "name": "nationality_in_fra_deu_ita",
@@ -61,6 +105,45 @@
       "proofType": "expiry_date",
       "params": { "minDate": 1798761600, "maxDate": 0 },
       "commitment": "0x2f13cf0dbd16ac2637f3b19ca631933220ed96d4922e9fafcbc5b27a2df59de9"
+    },
+    {
+      "name": "facematch_ios_strict",
+      "proofType": "facematch",
+      "params": {
+        "rootKeyLeaf": "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
+        "environment": 1,
+        "appIdHash": "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b",
+        "integrityPublicKeyHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "facematchMode": 2,
+        "revocationRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "commitment": "0x12a2e5b32f9791f950cd54edf2d743b21280e357a0a9416d88067c7f2556dbc2"
+    },
+    {
+      "name": "facematch_ios_app_clip_regular",
+      "proofType": "facematch",
+      "params": {
+        "rootKeyLeaf": "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
+        "environment": 1,
+        "appIdHash": "0x1409355f7733451c37093c8aac68611b102c0f270c9961d74ef6cfa6f888d3f0",
+        "integrityPublicKeyHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "facematchMode": 1,
+        "revocationRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "commitment": "0x0cb1797e10e3e6b5b3f20481f7bf5b215be2568dbc9cb2b3cf8dacb6a3c88d47"
+    },
+    {
+      "name": "facematch_android_strict",
+      "proofType": "facematch",
+      "params": {
+        "rootKeyLeaf": "0x16700a2d9168a194fc85f237af5829b5a2be05b8ae8ac4879ada34cf54a9c211",
+        "environment": 1,
+        "appIdHash": "0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d",
+        "integrityPublicKeyHash": "0x12e3dc7cc8fec0205b51ff21825630865028f3be5bc64a6eec9ee5e71221319f",
+        "facematchMode": 2,
+        "revocationRoot": "0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525"
+      },
+      "commitment": "0x1ec0db9cde1f07c72a2fb5ce008c18bd9ad150477fef05665aba7e09bb5dfa11"
     }
   ]
 }

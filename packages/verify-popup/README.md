@@ -13,12 +13,27 @@ bun run dev   # http://localhost:5173
 
 Point the button at it with `popupUrl="http://localhost:5173"`.
 
+To verify against circuits that are not published yet, serve them from the circuits repo
+(`npm run serve-circuits`) and start the popup with `VITE_CIRCUITS_URL=http://<ip>:8000`: it then
+verifies in the page (`verifierMode: "local"`) and fetches the manifest and keys from there.
+
 ## Verification links
 
-`https://verify.zkpassport.id?vl=<link id>` runs the same card for a link created in the
-ZKPassport dashboard. The page loads the request from the dashboard API and posts the proofs
-back to it once the phone has answered. For a local API set
+`https://verify.zkpassport.id?vl=<link id>` runs the same verification screens for a link created
+in the ZKPassport dashboard. The page loads the request from the dashboard API and posts the
+proofs back to it once the phone has answered. For a local API set
 `VITE_DASHBOARD_API_URL=http://localhost:3001`.
+
+## Hosted mint page
+
+`https://verify.zkpassport.id/m?chain=<chain>&policy=<credential id>` lets someone mint a
+credential without a website in between: they connect a wallet, prove the policy with the app, and
+the credential is minted to that wallet, which also pays the network fee. The first wallet to
+connect stays the recipient: switching accounts in the wallet afterwards only changes who pays, and
+"Use another wallet" on the consent screen picks another recipient. A wallet that already holds the
+credential sees until when it is valid. The header shows the name and image from the policy's metadata
+URL. Like `/r`, it is its own page (`m.html`, which `vercel.json` rewrites `/m` and `/m/*` to), so
+a mint link never runs the popup's session handling.
 
 ## The `/r` page
 
@@ -27,6 +42,12 @@ when the OS did not hand it to the installed app, so it leads with the store
 badges. It is a second Vite entry (`r.html`, `src/r/`) rather than a route in
 the SPA, so people on mobile data never download the SDK or the proving
 backends to read it. `vercel.json` rewrites `/r` and `/r/*` to `/r.html`.
+
+`/c` request links, which can also open the iOS App Clip, land on `c.html`. The
+build makes it from the `/r` page by adding Apple's App Clip tag
+(`vite.config.ts`). `vercel.json` rewrites `/c` and `/c/*` to it.
+iPhone Safari offers the clip only on the domain the clip is tied to, so
+`zkpassport.id/c` shows this page under its own address.
 
 The Play Store link carries the request as an install referrer built from the
 canonical `https://zkpassport.id/r?…` URL, the only form the app accepts, so
@@ -73,6 +94,9 @@ The RP's identity is derived exclusively from the browser-attested
 In link mode it comes from the dashboard API, which owns the link.
 The mobile app's origin trust for `verify.zkpassport.id`
 (`ZKPASSPORT_TRUSTED_ORIGINS` in the app) depends on this invariant.
+
+On the hosted mint page there is no RP: nothing is posted to another window, and the
+credential goes to the wallet the holder connected.
 
 In credential mode the SDK domain (the `d=` in the request URL, and the domain
 the proof is bound to) is the `ZKPassportCredentials` contract's on-chain

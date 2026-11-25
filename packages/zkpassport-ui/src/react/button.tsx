@@ -76,7 +76,7 @@ function BrandedButton({
         type="button"
         className="zkp-verify-button"
         data-status={status}
-        disabled={isButtonDisabled(status)}
+        disabled={isButtonDisabled(status, resumable)}
         title={buttonTooltip(status, resumable)}
         onClick={verification.verify}
       >
@@ -133,3 +133,10 @@ export type {
   VerificationState,
   VerificationStatus,
 } from "../verification"
+
+export {
+  VerificationMethod,
+  VerificationTier,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  type AllowedVerificationMethod,
+} from "@zkpassport/sdk"

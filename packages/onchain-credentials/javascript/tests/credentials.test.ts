@@ -1,11 +1,21 @@
 import { describe, expect, test } from "bun:test"
-import { decodeAbiParameters, getAbiItem } from "viem"
-import { NullifierType } from "@zkpassport/utils"
-import { PolicyEvaluatorV1Abi } from "../src/abi/policy-evaluator-v1"
+import {
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  decodeAbiParameters,
+  encodeErrorResult,
+  getAbiItem,
+} from "viem"
+import { NullifierType, type Query } from "@zkpassport/utils"
+import { PolicyEvaluatorV2Abi } from "../src/abi/policy-evaluator-v2"
 import { sepolia } from "viem/chains"
 import {
   CredentialsClient,
+  ZKPassportCredentialsAbi,
   computePolicyId,
+  credentialQueryFromRequirements,
+  credentialRequirementsFromQuery,
+  getCredentialsChains,
   createCredentialsContext,
   encodeCredentialPolicyRequirements,
   encodeIssueProofData,
@@ -38,6 +48,7 @@ const VERIFIER_PARAMS = {
 } as const
 
 const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
+const ISSUER = "0x4444444444444444444444444444444444444444" as const
 
 const SAMPLE_POLICY: CredentialPolicy = {
   owner: WALLET,
@@ -59,6 +70,7 @@ const RAW_REQUIREMENTS = {
   faceMatchMode: 2,
   includedNationalities: [],
   excludedNationalities: ["PRK"],
+  allowedVerificationMethods: [] as bigint[],
 }
 
 const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
@@ -67,6 +79,7 @@ const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
   facematchMode: "strict",
   includedNationalities: [],
   excludedNationalities: ["PRK"],
+  allowedVerificationMethods: [],
 }
 
 function stubClient(
@@ -118,9 +131,45 @@ describe("CredentialsClient reads", () => {
     expect(readCalls[0].args).toEqual([POLICY_ID])
   })
 
+  test("findPolicy returns the policy, or null when the contract has no policy with the id", async () => {
+    const policyNotFound = new ContractFunctionExecutionError(
+      new ContractFunctionRevertedError({
+        abi: ZKPassportCredentialsAbi,
+        data: encodeErrorResult({
+          abi: ZKPassportCredentialsAbi,
+          errorName: "ZKPassportCredentials__PolicyNotFound",
+          args: [POLICY_ID],
+        }),
+        functionName: "getPolicy",
+      }),
+      { abi: ZKPassportCredentialsAbi, args: [POLICY_ID], functionName: "getPolicy" },
+    )
+
+    const { client: existing } = stubClient(() => SAMPLE_POLICY)
+    const { client: missing } = stubClient(() => {
+      throw policyNotFound
+    })
+
+    expect(
+      await new CredentialsClient({ client: existing, address: REGISTRY }).findPolicy(POLICY_ID),
+    ).toEqual(SAMPLE_POLICY)
+    expect(
+      await new CredentialsClient({ client: missing, address: REGISTRY }).findPolicy(POLICY_ID),
+    ).toBeNull()
+  })
+
+  test("findPolicy rethrows failures other than a missing policy", async () => {
+    const { client } = stubClient(() => {
+      throw new Error("RPC unavailable")
+    })
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+
+    await expect(credentials.findPolicy(POLICY_ID)).rejects.toThrow("RPC unavailable")
+  })
+
   test("getRequirements decodes through the policy's evaluator", async () => {
     const { client, readCalls } = stubClient((p) => {
-      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "schemaVersion") return 2n
       if (p.functionName === "decodeRequirements") return RAW_REQUIREMENTS
       throw new Error(`unexpected read ${p.functionName}`)
     })
@@ -147,8 +196,8 @@ describe("CredentialsClient reads", () => {
     }
   })
 
-  test("getRequirements rejects unknown evaluator schemas", async () => {
-    const { client } = stubClient(() => 2n)
+  test("getRequirements rejects policies on a schema-1 evaluator", async () => {
+    const { client } = stubClient(() => 1n)
     const credentials = new CredentialsClient({ client, address: REGISTRY })
     await expect(credentials.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
       "Unsupported policy evaluator schema",
@@ -162,12 +211,13 @@ describe("CredentialsClient reads", () => {
     expect(readCalls[0]).toMatchObject({ address: EVALUATOR, functionName: "devMode" })
   })
 
-  test("uri, balanceOf, heldUntil, banned, policyScope forward the right calls", async () => {
+  test("uri, balanceOf, heldUntil, banned, isIssuer, policyScope forward the right calls", async () => {
     const results: Record<string, unknown> = {
       uri: "https://policy.example/kyc",
       balanceOf: 1n,
       heldUntil: 1702592000n,
       banned: true,
+      isIssuer: true,
       policyScope: "0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
@@ -176,17 +226,20 @@ describe("CredentialsClient reads", () => {
     expect(await credentials.balanceOf(WALLET, POLICY_ID)).toBe(1n)
     expect(await credentials.heldUntil(WALLET, POLICY_ID)).toBe(1702592000n)
     expect(await credentials.banned(WALLET, POLICY_ID)).toBe(true)
+    expect(await credentials.isIssuer(ISSUER, POLICY_ID)).toBe(true)
     expect(await credentials.policyScope(POLICY_ID)).toBe(results.policyScope as string)
     expect(readCalls.map((c) => c.functionName)).toEqual([
       "uri",
       "balanceOf",
       "heldUntil",
       "banned",
+      "isIssuer",
       "policyScope",
     ])
     expect(readCalls[1].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[2].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[3].args).toEqual([WALLET, POLICY_ID])
+    expect(readCalls[4].args).toEqual([ISSUER, POLICY_ID])
   })
 })
 
@@ -254,7 +307,7 @@ describe("CredentialsClient issue helpers", () => {
 
     // The bytes must decode back through the evaluator's own decodeProofData layout.
     const proofDataAbi = getAbiItem({
-      abi: PolicyEvaluatorV1Abi,
+      abi: PolicyEvaluatorV2Abi,
       name: "decodeProofData",
     }).outputs
     const [decoded] = decodeAbiParameters(proofDataAbi, proofData)
@@ -273,15 +326,19 @@ describe("credentials deployments", () => {
     const { getCredentialsChain } = await import("../src/deployments")
     expect(getCredentialsChain("ethereum_sepolia").id).toBe(11155111)
     expect(getCredentialsChain("local").id).toBe(31337)
-    expect(() => getCredentialsChain("base")).toThrow("not supported")
+    expect(getCredentialsChain("base").id).toBe(8453)
+    expect(getCredentialsChain("robinhood").id).toBe(4663)
+    expect(() => getCredentialsChain("arbitrum")).toThrow("not supported")
   })
 
   test("resolves canonical registries and rejects chains without one", async () => {
     const { getCredentialsAddress } = await import("../src/deployments")
-    // Mainnet and Sepolia share an address: same CREATE2 salt and constructor args on both.
-    expect(getCredentialsAddress("ethereum")).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
+    // All deployments share an address: same CREATE2 salt and constructor args on each chain.
+    expect(getCredentialsAddress("ethereum")).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
+    expect(getCredentialsAddress("base")).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
+    expect(getCredentialsAddress("robinhood")).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
     expect(getCredentialsAddress("ethereum_sepolia")).toBe(
-      "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
+      "0x000C8Dbf0F3855D66f346bD969e659D93f744E4b",
     )
     expect(() => getCredentialsAddress("local")).toThrow(
       "Credential minting is not supported on 'local': no credentials contract is deployed.",
@@ -292,7 +349,7 @@ describe("credentials deployments", () => {
 describe("createCredentialsContext", () => {
   test("binds a CredentialsClient to the chain's canonical contract", () => {
     const ctx = createCredentialsContext(sepolia)
-    expect(ctx.credentials.address).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
+    expect(ctx.credentials.address).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
     expect(ctx.chain).toBe(sepolia)
   })
 
@@ -359,12 +416,12 @@ describe("submitIssueCall", () => {
 const SALT = "0x0000000000000000000000000000000000000000000000000000000000000007" as const
 
 const REQUIREMENTS_ABI = getAbiItem({
-  abi: PolicyEvaluatorV1Abi,
+  abi: PolicyEvaluatorV2Abi,
   name: "decodeRequirements",
 }).outputs
 
 describe("encodeCredentialPolicyRequirements", () => {
-  test("round-trips through the evaluator's schema-1 layout", () => {
+  test("round-trips through the evaluator's schema-2 layout", () => {
     const encoded = encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded).toEqual({
@@ -383,6 +440,41 @@ describe("encodeCredentialPolicyRequirements", () => {
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded.sanctionsMode).toBe(0)
     expect(decoded.faceMatchMode).toBe(0)
+  })
+})
+
+describe("encodeCredentialPolicyRequirements verification methods", () => {
+  test("encodes the verification methods, empty when not given", () => {
+    const [withMethods] = decodeAbiParameters(
+      REQUIREMENTS_ABI,
+      encodeCredentialPolicyRequirements({
+        ...SAMPLE_REQUIREMENTS,
+        allowedVerificationMethods: [1, 201],
+      }),
+    )
+    expect(withMethods.allowedVerificationMethods).toEqual([1n, 201n])
+    const [without] = decodeAbiParameters(
+      REQUIREMENTS_ABI,
+      encodeCredentialPolicyRequirements({
+        ...SAMPLE_REQUIREMENTS,
+        allowedVerificationMethods: undefined,
+      }),
+    )
+    expect(without.allowedVerificationMethods).toEqual([])
+  })
+
+  test("getRequirements decodes a policy's verification methods", async () => {
+    const { client } = stubClient((p) => {
+      if (p.functionName === "schemaVersion") return 2n
+      if (p.functionName === "decodeRequirements")
+        return { ...RAW_REQUIREMENTS, allowedVerificationMethods: [1n, 201n] }
+      throw new Error(`unexpected read ${p.functionName}`)
+    })
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    expect(await credentials.getRequirements(SAMPLE_POLICY)).toEqual({
+      ...SAMPLE_REQUIREMENTS,
+      allowedVerificationMethods: [1, 201],
+    })
   })
 })
 
@@ -443,6 +535,12 @@ describe("CredentialsClient owner calls", () => {
     expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
   })
 
+  test("buildMigrateEvaluatorCall pairs the policy id with re-encoded requirements", () => {
+    const call = credentials.buildMigrateEvaluatorCall(POLICY_ID, SAMPLE_REQUIREMENTS)
+    expect(call.functionName).toBe("migrateEvaluator")
+    expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
+  })
+
   test("the remaining owner calls mirror the contract signatures", () => {
     expect(credentials.buildSetMetadataURLCall(POLICY_ID, "https://p.example/2")).toMatchObject({
       address: REGISTRY,
@@ -453,9 +551,25 @@ describe("CredentialsClient owner calls", () => {
       functionName: "retire",
       args: [POLICY_ID],
     })
+    expect(credentials.buildSetCredentialDurationCall(POLICY_ID, 604800n)).toMatchObject({
+      functionName: "setCredentialDuration",
+      args: [POLICY_ID, 604800n],
+    })
     expect(credentials.buildOwnerIssueCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "ownerIssue",
       args: [WALLET, POLICY_ID],
+    })
+    expect(credentials.buildOwnerIssueBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "ownerIssueBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
+    })
+    expect(credentials.buildAddIssuerCall(ISSUER, POLICY_ID)).toMatchObject({
+      functionName: "addIssuer",
+      args: [ISSUER, POLICY_ID],
+    })
+    expect(credentials.buildRemoveIssuerCall(ISSUER, POLICY_ID)).toMatchObject({
+      functionName: "removeIssuer",
+      args: [ISSUER, POLICY_ID],
     })
     expect(credentials.buildRenounceCall(POLICY_ID)).toMatchObject({
       functionName: "renounce",
@@ -465,9 +579,17 @@ describe("CredentialsClient owner calls", () => {
       functionName: "ban",
       args: [WALLET, POLICY_ID],
     })
+    expect(credentials.buildBanBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "banBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
+    })
     expect(credentials.buildUnbanCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "unban",
       args: [WALLET, POLICY_ID],
+    })
+    expect(credentials.buildUnbanBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "unbanBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
     })
   })
 })
@@ -505,5 +627,165 @@ describe("submitCredentialsCall", () => {
     await expect(
       submitCredentialsCall(ctx, credentials.buildUnbanCall(WALLET, POLICY_ID), wallet),
     ).rejects.toThrow("unban transaction reverted (tx 0xhash).")
+  })
+})
+
+describe("credentialRequirementsFromQuery", () => {
+  test("carries age, nationality, sanctions and FaceMatch checks over, nationalities sorted", () => {
+    const result = credentialRequirementsFromQuery({
+      age: { gte: 18 },
+      nationality: { out: ["SYR", "CUB", "PRK", "IRN"] },
+      sanctions: { countries: "all", lists: "all", strict: false },
+      facematch: { mode: "strict" },
+    })
+
+    expect(result).toEqual({
+      requirements: {
+        minAge: 18,
+        includedNationalities: [],
+        excludedNationalities: ["CUB", "IRN", "PRK", "SYR"],
+        sanctionsMode: "normal",
+        facematchMode: "strict",
+      },
+    })
+  })
+
+  test("reads a single included nationality and strict sanctions", () => {
+    const result = credentialRequirementsFromQuery({
+      nationality: { eq: "FRA" },
+      sanctions: { strict: true },
+    })
+
+    expect(result).toEqual({
+      requirements: {
+        minAge: 0,
+        includedNationalities: ["FRA"],
+        excludedNationalities: [],
+        sanctionsMode: "strict",
+      },
+    })
+  })
+
+  test("names every check a credential policy cannot carry", () => {
+    const result = credentialRequirementsFromQuery({
+      age: { gte: 18, lt: 65 },
+      nationality: { in: ["FRA"], disclose: true },
+      issuing_country: { in: ["GBR", "CAN"] },
+      firstname: { disclose: true },
+    })
+
+    expect(result).toEqual({
+      unsupported: [
+        { field: "age", method: "lt" },
+        { field: "nationality", method: "disclose" },
+        { field: "issuing_country", method: "in" },
+        { field: "firstname", method: "disclose" },
+      ],
+    })
+  })
+
+  test("names an empty nationality in, which admits nobody but would turn the check off", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { in: [] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "in" }],
+    })
+  })
+
+  test("names nationality eq beside in, which one included list cannot require together", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { eq: "FRA", in: ["DEU"] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "eq" }],
+    })
+  })
+
+  test("carries nationality in and out together, since the evaluator checks both lists", () => {
+    expect(
+      credentialRequirementsFromQuery({ nationality: { in: ["FRA", "DEU"], out: ["DEU"] } }),
+    ).toEqual({
+      requirements: {
+        minAge: 0,
+        includedNationalities: ["DEU", "FRA"],
+        excludedNationalities: ["DEU"],
+      },
+    })
+  })
+
+  test("names a FaceMatch mode the evaluator does not know", () => {
+    const query = JSON.parse('{ "facematch": { "mode": "lenient" } }') as Query
+
+    expect(credentialRequirementsFromQuery(query)).toEqual({
+      unsupported: [{ field: "facematch", method: "mode" }],
+    })
+  })
+
+  test("rejects nationalities that are not ISO alpha-3 codes", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { in: ["France"] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "in" }],
+    })
+  })
+})
+
+describe("credentialQueryFromRequirements", () => {
+  test("writes each requirement as the SDK query check that asks for it", () => {
+    const query = credentialQueryFromRequirements({
+      minAge: 21,
+      includedNationalities: ["FRA", "DEU"],
+      excludedNationalities: ["PRK"],
+      sanctionsMode: "strict",
+      facematchMode: "regular",
+      allowedVerificationMethods: [1, 2],
+    })
+
+    expect(query).toEqual({
+      age: { gte: 21 },
+      nationality: { in: ["FRA", "DEU"], out: ["PRK"] },
+      sanctions: { countries: "all", lists: "all", strict: true },
+      facematch: { mode: "regular" },
+    })
+  })
+
+  test("leaves out the checks the requirements turn off", () => {
+    expect(
+      credentialQueryFromRequirements({
+        minAge: 0,
+        includedNationalities: [],
+        excludedNationalities: [],
+      }),
+    ).toEqual({})
+  })
+
+  test("round-trips through credentialRequirementsFromQuery", () => {
+    const cases: CredentialPolicyRequirements[] = [
+      { ...SAMPLE_REQUIREMENTS, allowedVerificationMethods: undefined },
+      {
+        minAge: 0,
+        includedNationalities: ["CAN", "GBR"],
+        excludedNationalities: [],
+        sanctionsMode: "strict",
+      },
+      {
+        minAge: 65,
+        includedNationalities: [],
+        excludedNationalities: [],
+        facematchMode: "regular",
+      },
+    ]
+    for (const requirements of cases) {
+      const { allowedVerificationMethods: _, ...expected } = requirements
+      expect(
+        credentialRequirementsFromQuery(credentialQueryFromRequirements(requirements)),
+      ).toEqual({
+        requirements: expected,
+      })
+    }
+  })
+})
+
+describe("getCredentialsChains", () => {
+  test("lists the chains with a deployed credentials contract", () => {
+    expect(getCredentialsChains().sort()).toEqual([
+      "base",
+      "ethereum",
+      "ethereum_sepolia",
+      "robinhood",
+    ])
   })
 })

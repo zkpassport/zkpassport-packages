@@ -1,10 +1,14 @@
-import { getNetworkConstants } from "./networks"
+import { findNetworkConstants, getNetworkConstants } from "./networks"
 import { normaliseHash } from "./utils"
 
 /**
  * Default number of retries for fetching data
  */
 export const DEFAULT_RETRY_COUNT = 3
+
+export const DEFAULT_RPC_TIMEOUT_MS = 5_000
+
+export const DEFAULT_FALLBACK_RPC_TIMEOUT_MS = 15_000
 
 /**
  * Certificate Registry ID
@@ -40,9 +44,10 @@ export const SANCTIONS_TREE_URL_DEV = "http://localhost:8000/sanctions"
  */
 export const SANCTIONS_TREE_URL_TEMPLATE = (chainId: number, root: string) => {
   root = normaliseHash(root)
-  if (chainId === 1 || chainId === 8453) {
+  const networkType = findNetworkConstants(chainId)?.type
+  if (networkType === "mainnet") {
     return `${SANCTIONS_TREE_URL_MAINNET}/${root}.tree.json.gz`
-  } else if (chainId === 11155111) {
+  } else if (networkType === "testnet") {
     return `${SANCTIONS_TREE_URL_TESTNET}/${root}.tree.json.gz`
   } else {
     return `${SANCTIONS_TREE_URL_DEV}/${root}.tree.json.gz`

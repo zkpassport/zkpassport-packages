@@ -48,6 +48,8 @@ describe("resolveCredentialsChain", () => {
   })
 
   test("rejects chains without a registry deployment", () => {
-    expect(() => resolveCredentialsChain("base")).toThrow("not supported")
+    expect(resolveCredentialsChain("base").id).toBe(8453)
+    expect(resolveCredentialsChain("robinhood").id).toBe(4663)
+    expect(() => resolveCredentialsChain("arbitrum")).toThrow("not supported")
   })
 })

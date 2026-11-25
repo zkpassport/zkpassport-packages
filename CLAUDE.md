@@ -17,7 +17,7 @@ Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<
 <commits_and_prs>
 Follow Conventional Commits: `fix(scope): Subject`, `feat(scope): Subject`, `chore(scope): Subject`, `refactor(scope): Subject`, `docs(scope): Subject`, `test(scope): Subject`. PRs are squashed to a single commit on merge, so during development just create normal commits — do not amend unless explicitly asked.
 
-Scope must match one of: (contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace)(,(contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace))*
+Scope must be one or more of the scopes listed in `.github/workflows/check-pr.yml` on `main`, comma-separated (e.g. `fix(sdk,ui): Subject`). `ci:` and `build:` titles may omit the scope.
 
 Subject must start with an uppercase letter.
 

@@ -33,9 +33,8 @@ const CredentialFlow = lazy(() =>
 
 export function App() {
   const linkId = useMemo(() => new URLSearchParams(window.location.search).get("vl"), [])
-  // The link flow answers to the dashboard rather than to an opener, so it needs no session
-  const session = useMemo(() => (linkId ? null : openSession()), [linkId])
-  const restored = useMemo(() => (session ? readSession(session) : null), [session])
+  const session = useMemo(() => openSession(), [])
+  const restored = useMemo(() => (linkId ? null : readSession(session)), [linkId, session])
   const [config, setConfig] = useState<SessionConfiguration | null>(
     () => restored?.configuration ?? null,
   )
@@ -49,11 +48,11 @@ export function App() {
   // window, and the page waiting for the result has no other way to recognise it
   const post = (message: OutgoingEvent, rpOrigin: string) => {
     const target = replyTo.current ?? (window.opener as Window | null)
-    target?.postMessage({ zkpassport: true, session: session?.id, ...message }, rpOrigin)
+    target?.postMessage({ zkpassport: true, session: session.id, ...message }, rpOrigin)
   }
 
   useEffect(() => {
-    if (!session) return
+    if (linkId) return
     const onMessage = (event: MessageEvent) => {
       const data = event.data
       if (!isPopupMessage(data) || data.type !== "configure") return
@@ -83,10 +82,10 @@ export function App() {
       "*",
     )
     return () => window.removeEventListener("message", onMessage)
-  }, [session])
+  }, [linkId, session])
 
   const inAppBrowser = useMemo(() => isInAppBrowser(), [])
-  const ended = !config && !window.opener && !!session?.fromUrl && !inAppBrowser
+  const ended = !linkId && !config && !window.opener && session.fromUrl && !inAppBrowser
   useEffect(() => {
     if (!ended) return
     const timer = setTimeout(() => window.close(), ENDED_CLOSE_DELAY_MS)
@@ -94,7 +93,7 @@ export function App() {
   }, [ended])
 
   const send = useMemo(() => {
-    if (!config || !session) return null
+    if (!config) return null
     return (message: OutgoingEvent) => {
       // Held before it is sent, so a page that was not there to receive it can still be given it
       if (message.type === "success") finishSession(session, message)
@@ -105,7 +104,7 @@ export function App() {
   if (linkId) {
     return (
       <Frame>
-        <LinkVerification linkId={linkId} />
+        <LinkVerification linkId={linkId} session={session} />
       </Frame>
     )
   }
@@ -122,7 +121,7 @@ export function App() {
     return <Frame>{ended ? <EndedNotice /> : <OpenedDirectlyNotice />}</Frame>
   }
 
-  if (!session || !config || !send) {
+  if (!config || !send) {
     return (
       <Frame>
         <Notice>Connecting…</Notice>
@@ -137,7 +136,7 @@ export function App() {
   if (alreadyDone) {
     return (
       <Frame>
-        <FlowCard name={appName} logo={config.request.logo} screenKey="done">
+        <FlowCard screenKey="done">
           <Done outcome={{ kind: "verified" }} appName={appName} />
         </FlowCard>
       </Frame>
@@ -174,17 +173,15 @@ export function App() {
 
 function EndedNotice() {
   return (
-    <Notice>
-      This verification is no longer running. Go back to the website and start it again.
-    </Notice>
+    <Notice title="This verification has ended">Go back to the website and start it again.</Notice>
   )
 }
 
 function OpenedDirectlyNotice() {
   return (
-    <Notice>
-      This page verifies your ID for websites that use ZKPassport. Open it from a website's "Verify
-      with ZKPassport" button.
+    <Notice title="Nothing to verify here">
+      This page opens from a website&rsquo;s &ldquo;Verify your identity&rdquo; button. Go back to
+      the site and start there.
     </Notice>
   )
 }
@@ -192,13 +189,10 @@ function OpenedDirectlyNotice() {
 function InAppBrowserNotice() {
   const site = referringSite()
   return (
-    <>
-      <Notice>
-        You&rsquo;re in an app&rsquo;s built-in browser, which can&rsquo;t complete verification.
-        Open {site ? site.host : "the site that sent you here"} in your browser and start again.
-      </Notice>
-      {site ? <LinkActions url={site.url} /> : null}
-    </>
+    <Notice title="Open this in your browser" after={site ? <LinkActions url={site.url} /> : null}>
+      This app&rsquo;s built-in browser can&rsquo;t complete verification. Open{" "}
+      {site ? site.host : "the site that sent you here"} in your browser and start again.
+    </Notice>
   )
 }
 

@@ -36,6 +36,24 @@ import { walletConnect } from "wagmi/connectors"
 
 const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined
 
+/**
+ * The credentials chain at the RPC this page uses, with a wallet config for it, or why the chain
+ * can't be used.
+ */
+export function resolveWalletChain(
+  chain: SupportedChain,
+): { chain: Chain; config: Config } | { error: string } {
+  try {
+    const resolved = resolveCredentialsChain(
+      chain,
+      rpcOverrideFromLocation(window.location) ?? configuredRpcUrl(chain),
+    )
+    return { chain: resolved, config: buildWalletConfig(resolved) }
+  } catch (reason) {
+    return { error: reason instanceof Error ? reason.message : String(reason) }
+  }
+}
+
 export function buildWalletConfig(chain: Chain): Config {
   const connectors = [injected()]
   if (WALLETCONNECT_PROJECT_ID) {

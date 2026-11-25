@@ -6,10 +6,16 @@ type NetworkType = "mainnet" | "testnet" | "dev"
 type NetworkConstants = {
   chainId: number
   chain: SupportedChain
+  /** Whether the registry is the RootRegistry contract on an EVM chain or the ZKPassportRegistry contract on Aztec */
+  kind: "evm" | "aztec"
   type: NetworkType
+  /** The JSON-RPC URL of an EVM node, or of an Aztec node */
   rpcUrl: string
+  fallbackRpcUrls?: string[]
+  /** The address of the contract holding the certificate, circuit and sanctions roots */
   rootRegistry: string
-  registryHelper: string
+  /** The RegistryHelper contract, which only EVM chains have */
+  registryHelper?: string
   packagedCertificatesUrl: string
   circuitUrl: string
 }
@@ -51,6 +57,8 @@ const CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
 const CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/testnet"
 const CIRCUIT_URL_DEV = "http://localhost:8000"
 
+const zkpassportRpcUrl = (chain: SupportedChain) => `https://api.zkpassport.id/api/rpc/${chain}`
+
 /**
  * Network constants of each chain RegistryClient supports
  */
@@ -58,8 +66,10 @@ const NETWORKS: NetworkConstants[] = [
   {
     chainId: getIdFromChain("ethereum"),
     chain: "ethereum",
+    kind: "evm",
     type: "mainnet",
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
+    fallbackRpcUrls: [zkpassportRpcUrl("ethereum")],
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0x8C93bB3a7ED88dA0647Ea53f8cd3f57832a513Cd",
     // registryHelper: "0x0467c57Cadfc256E6a93abd5401BAF26Bdd382ef", // New RegistryHelper for canonical root registry
@@ -69,8 +79,10 @@ const NETWORKS: NetworkConstants[] = [
   {
     chainId: getIdFromChain("base"),
     chain: "base",
+    kind: "evm",
     type: "mainnet",
     rpcUrl: "https://base-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
+    fallbackRpcUrls: [zkpassportRpcUrl("base")],
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7",
     // registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7", // New RegistryHelper for canonical root registry
@@ -80,18 +92,32 @@ const NETWORKS: NetworkConstants[] = [
   {
     chainId: getIdFromChain("robinhood"),
     chain: "robinhood",
+    kind: "evm",
     type: "mainnet",
     rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
+    fallbackRpcUrls: [zkpassportRpcUrl("robinhood")],
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0x0A55cA59e98e17666C1A9a099d546E676088bC1A",
     packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
     circuitUrl: CIRCUIT_URL_MAINNET,
   },
   {
+    chainId: getIdFromChain("aztec"),
+    chain: "aztec",
+    kind: "aztec",
+    type: "mainnet",
+    rpcUrl: "https://aztec-mainnet.drpc.org",
+    rootRegistry: "0x1478d06759c62f151751aa08e2ce8950dd49e9891c40b9a93774a4686000e8fc",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
+    circuitUrl: CIRCUIT_URL_MAINNET,
+  },
+  {
     chainId: getIdFromChain("ethereum_sepolia"),
     chain: "ethereum_sepolia",
+    kind: "evm",
     type: "testnet",
     rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
+    fallbackRpcUrls: [zkpassportRpcUrl("ethereum_sepolia")],
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0x6Ee299B1E8049fadc3494f1110A3479f5BE8EC0e",
     // registryHelper: "0xbcc295c3f2a5398d459c81355540270d66563a61", // New RegistryHelper for canonical root registry
@@ -99,8 +125,19 @@ const NETWORKS: NetworkConstants[] = [
     circuitUrl: CIRCUIT_URL_SEPOLIA,
   },
   {
+    chainId: getIdFromChain("aztec_testnet"),
+    chain: "aztec_testnet",
+    kind: "aztec",
+    type: "testnet",
+    rpcUrl: "https://aztec-testnet.drpc.org",
+    rootRegistry: "0x019de2b2c83e178733dce20707949a17ec3465caba6ccd24b3d861f151bf0f30",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_TESTNET,
+    circuitUrl: CIRCUIT_URL_SEPOLIA,
+  },
+  {
     chainId: getIdFromChain("local"),
     chain: "local",
+    kind: "evm",
     type: "dev",
     rpcUrl: "http://localhost:8545",
     rootRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3",

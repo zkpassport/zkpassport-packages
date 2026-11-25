@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "certificate": {
+    "country": "IND",
+    "signature_algorithm": "RSA",
+    "public_key": {
+      "type": "RSA",
+      "modulus": "0xbf50d22bdfeaad6f115f5bc364cb04f318a2c89963fbac710edbbe9d26435bd0bf89a8d2a89d9080bbd1830793c38b2ecf3c5942c78e13e91baa56deb0d1dcd25423b7d4fe08662b51309b308fdadf365baf7bcfc73dd594dee2aabf14e88494379df1fbaa8073867f3dceba22a240eb35c13ca1598871cc9a2d3478cd781e0356acb12460713981e06606011ebf39ec912e10fac2555fee2c789ff369d737e4ee06ea0bd665ab65b01e524c649d7ace13a85d64d055786b4085eef033a5403812d428865e9d9ca5a97d6600254c5b4ab1f53822c5067d4005ef58c3989990830561aba1c85ccfd7a5c2886f754cfa0e44827cb2c211f6e7f6d68eab0fcd8e27",
+      "exponent": 65537,
+      "key_size": 2048
+    },
+    "validity": {
+      "not_before": 1528466341,
+      "not_after": 1623074341
+    },
+    "authority_key_identifier": "0x4dc33a5fead78fe4",
+    "subject_key_identifier": "0xd958f3129682bfcba71ca3457d30289faed87622",
+    "fingerprint": "0x04e1bc316972d5a3942277840e7e6e15f9d0cb5365b5ea88cf24ea0ef075565d",
+    "tags": [
+      "IN"
+    ],
+    "type": "uidai"
+  },
+  "leaf": "4624449403393556786773946385052432788490413596288018433743858037525263264778"
+}

@@ -9,32 +9,49 @@ function canShare(): boolean {
   return typeof navigator !== "undefined" && typeof navigator.share === "function"
 }
 
-export function LinkActions({
-  url,
-  onCopyFailedChange,
-}: {
-  url: string
-  onCopyFailedChange?: (failed: boolean) => void
-}) {
-  const [copied, setCopied] = useState(false)
-  const [shareable] = useState(canShare)
+type CopyState = "idle" | "copied" | "failed"
+
+/** Copies the link, then says so for a moment; "failed" stays until the next try. */
+function useCopy(url: string) {
+  const [state, setState] = useState<CopyState>("idle")
 
   useEffect(() => {
-    if (!copied) return
-    const timer = window.setTimeout(() => setCopied(false), COPIED_RESET_MS)
+    if (state !== "copied") return
+    const timer = window.setTimeout(() => setState("idle"), COPIED_RESET_MS)
     return () => window.clearTimeout(timer)
-  }, [copied])
+  }, [state])
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-      onCopyFailedChange?.(false)
+      setState("copied")
     } catch {
       // Some embedded browsers deny clipboard access; say so rather than look broken
-      onCopyFailedChange?.(true)
+      setState("failed")
     }
   }
+
+  return { state, copy }
+}
+
+/** The quiet way out of a QR code: one link, which answers in place */
+export function CopyLink({ url }: { url: string }) {
+  const { state, copy } = useCopy(url)
+  return (
+    <button type="button" className="scan-reveal" onClick={copy} aria-live="polite">
+      {state === "copied"
+        ? "Link copied. Open it on your phone."
+        : state === "failed"
+          ? "Couldn’t copy. Use your browser’s share menu instead."
+          : "Can’t scan? Copy the link"}
+    </button>
+  )
+}
+
+export function LinkActions({ url }: { url: string }) {
+  const { state, copy } = useCopy(url)
+  const copied = state === "copied"
+  const [shareable] = useState(canShare)
 
   const share = async () => {
     try {
@@ -52,7 +69,7 @@ export function LinkActions({
           aria-hidden="true"
           dangerouslySetInnerHTML={{ __html: ICON_LINK }}
         />
-        {copied ? "Link copied" : "Copy link"}
+        {copied ? "Link copied" : state === "failed" ? "Couldn’t copy" : "Copy link"}
       </button>
       {shareable ? (
         <button type="button" className="flow-quietbtn" onClick={share}>

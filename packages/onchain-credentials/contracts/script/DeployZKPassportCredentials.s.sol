@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {NullifierType} from "@registry/lib/Types.sol";
 
@@ -30,15 +30,15 @@ contract DeployZKPassportCredentialsScript is Script {
             _nullifierType(vm.envString("ZKPASSPORT_CREDENTIALS_UNIQUE_IDENTIFIER_TYPE"));
 
         vm.startBroadcast();
-        PolicyEvaluatorV1 policyEvaluator = existingEvaluator != address(0)
-            ? PolicyEvaluatorV1(existingEvaluator)
-            : new PolicyEvaluatorV1{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
+        PolicyEvaluatorV2 policyEvaluator = existingEvaluator != address(0)
+            ? PolicyEvaluatorV2(existingEvaluator)
+            : new PolicyEvaluatorV2{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
         ZKPassportCredentials zkPassportCredentials =
             new ZKPassportCredentials{salt: credentialsSalt}(domain, adminAddress, policyEvaluator);
         vm.stopBroadcast();
 
         console.log("ZKPassportCredentials deployed at:", address(zkPassportCredentials));
-        console.log("PolicyEvaluatorV1 deployed at:", address(policyEvaluator));
+        console.log("PolicyEvaluatorV2 deployed at:", address(policyEvaluator));
 
         string memory json = "credentials";
         vm.serializeAddress(json, "address", address(zkPassportCredentials));
@@ -75,8 +75,8 @@ contract DeployZKPassportCredentialsScript is Script {
  *   export ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS=0x2000ab040a899f914D6DfD2457C3dFBB22d4c762
  *   export ZKPASSPORT_CREDENTIALS_DEV_MODE=false
  *   export ZKPASSPORT_CREDENTIALS_UNIQUE_IDENTIFIER_TYPE=salted
- *   export EVALUATOR_SALT=0xaff5912563440cf851f9f0bfe451f004a1cf59dc58a700ae23548a008602e8ca
- *   export CREDENTIALS_SALT=0xa0f75792a261027209ba68bf657a4e5b7a2d8ebe0804382920b59e2e9ff617bc
+ *   export EVALUATOR_SALT=0x682066bbddeb751e4c77c9aaf3a414068e4ea67c4276ca7f9ade30d1f906e94c
+ *   export CREDENTIALS_SALT=0xb334a82c40632f94f85eac9541b5be8103c462bda54a2fe9e668a64293eb2d70
  *
  *   forge script script/DeployZKPassportCredentials.s.sol --rpc-url <> --private-key <> --broadcast --verify --etherscan-api-key <>
  *

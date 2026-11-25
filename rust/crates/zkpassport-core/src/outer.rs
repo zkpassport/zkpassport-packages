@@ -1,0 +1,342 @@
+//! Outer (compression/aggregation) proof input assembly + cloud-prover request.
+//!
+//! Ports the pure pieces from `@zkpassport/utils`: `ultraVkToFields`,
+//! `proofToFields`/`getProofData`, `getNumberOfPublicInputs`,
+//! `getLeavesFromCircuitManifest`/`getCircuitMerkleProof`, and
+//! `getOuterCircuitInputs`. The cloud POST itself is IO (platform runner).
+//! Used for the compressed / compressed-evm (on-chain-verifiable) modes.
+
+use crate::merkle::compute_merkle_proof;
+use crate::plan::CircuitManifest;
+use num_bigint::BigUint;
+use serde_json::{json, Value};
+
+pub const CIRCUIT_REGISTRY_HEIGHT: usize = 12;
+
+/// The first circuit version whose proofs carry the verification method
+/// (`VERIFICATION_METHOD_CIRCUIT_VERSION`)
+pub const VERIFICATION_METHOD_CIRCUIT_VERSION: &str = "0.23.0";
+
+/// `hasVerificationMethod`: whether proofs of a circuit version carry the verification method; a proof
+/// without a version is from before it existed
+pub fn has_verification_method(version: Option<&str>) -> bool {
+    let parse = |v: &str| -> Vec<u64> {
+        v.split('.')
+            .map(|p| p.split('-').next().unwrap_or("0").parse().unwrap_or(0))
+            .collect()
+    };
+    let Some(version) = version else {
+        return false;
+    };
+    let (a, b) = (parse(version), parse(VERIFICATION_METHOD_CIRCUIT_VERSION));
+    for i in 0..3 {
+        let (x, y) = (*a.get(i).unwrap_or(&0), *b.get(i).unwrap_or(&0));
+        if x != y {
+            return x > y;
+        }
+    }
+    true
+}
+
+/// `getNumberOfPublicInputs(name, version)`: since 0.23.0 the integrity proof also outputs the
+/// verification method, and the outer proof re-exports it
+pub fn num_public_inputs(name: &str, version: Option<&str>) -> usize {
+    let scheme = usize::from(has_verification_method(version));
+    if name == crate::aadhaar::AADHAAR_CIRCUIT_NAME {
+        3
+    } else if name.starts_with("data_check_integrity") {
+        2 + scheme
+    } else if name.starts_with("sig_check_id_data") || name.starts_with("sig_check_dsc") {
+        2
+    } else if name.starts_with("oprf_auth") {
+        3
+    } else if name.starts_with("outer") {
+        let n: i64 = name
+            .rsplit('_')
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(3);
+        // An Aadhaar outer proof has one base proof and always carries the verification method
+        if name.contains("_aadhaar_") {
+            return (8 + n).max(0) as usize;
+        }
+        (8 + (n - 3)).max(0) as usize + scheme
+    } else {
+        8
+    }
+}
+
+/// `proofToFields`: 32-byte big-endian chunks, hex (no 0x); the final partial
+/// chunk is right-padded with zero bytes (trailing).
+pub fn proof_to_fields(proof: &[u8]) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut i = 0;
+    while i < proof.len() {
+        let mut chunk = [0u8; 32];
+        let end = (i + 32).min(proof.len());
+        chunk[..end - i].copy_from_slice(&proof[i..end]);
+        fields.push(hex::encode(chunk));
+        i += 32;
+    }
+    fields
+}
+
+pub struct ProofData {
+    /// Proof body fields (no 0x prefix), i.e. fields after the public inputs.
+    pub proof: Vec<String>,
+    /// Public-input fields, 0x-prefixed.
+    pub public_inputs: Vec<String>,
+}
+
+/// `getProofData(proof, publicInputsNumber)` — first N fields are public inputs.
+pub fn get_proof_data(proof_hex: &str, num_pub: usize) -> Result<ProofData, String> {
+    let bytes = hex::decode(proof_hex.strip_prefix("0x").unwrap_or(proof_hex))
+        .map_err(|e| e.to_string())?;
+    let all = proof_to_fields(&bytes);
+    if all.len() < num_pub {
+        return Err("proof shorter than public input count".into());
+    }
+    let public_inputs = all[..num_pub].iter().map(|f| format!("0x{f}")).collect();
+    let proof = all[num_pub..].to_vec();
+    Ok(ProofData {
+        proof,
+        public_inputs,
+    })
+}
+
+/// `ultraVkToFields`: base64-decoded vkey → 32-byte chunks, each `0x` + 64 hex
+/// LEFT-padded (a full UltraHonk vkey is 112 fields).
+pub fn ultra_vk_to_fields(bytes: &[u8]) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        let end = (i + 32).min(bytes.len());
+        let hex = hex::encode(&bytes[i..end]);
+        fields.push(format!("0x{:0>64}", hex));
+        i += 32;
+    }
+    fields
+}
+
+/// `getLeavesFromCircuitManifest`: circuit vkey-hashes as bigints, ascending.
+pub fn circuit_leaves(manifest: &CircuitManifest) -> Vec<BigUint> {
+    let mut leaves: Vec<BigUint> = manifest
+        .circuits
+        .values()
+        .map(|c| {
+            let h = c.hash.strip_prefix("0x").unwrap_or(&c.hash);
+            BigUint::parse_bytes(h.as_bytes(), 16).unwrap_or_default()
+        })
+        .collect();
+    leaves.sort();
+    leaves
+}
+
+/// `getCircuitMerkleProof`: (treeIndex hex, treeHashPath) for a circuit hash.
+pub fn circuit_merkle_proof(
+    manifest: &CircuitManifest,
+    key_hash: &str,
+) -> Result<(String, Vec<String>), String> {
+    let leaves = circuit_leaves(manifest);
+    let target = {
+        let h = key_hash.strip_prefix("0x").unwrap_or(key_hash);
+        BigUint::parse_bytes(h.as_bytes(), 16).ok_or("bad key hash")?
+    };
+    let index = leaves
+        .iter()
+        .position(|l| *l == target)
+        .ok_or("circuit hash not in manifest")?;
+    let proof = compute_merkle_proof(&leaves, index, CIRCUIT_REGISTRY_HEIGHT);
+    let path = proof["path"]
+        .as_array()
+        .ok_or("no path")?
+        .iter()
+        .map(|v| v.as_str().unwrap_or("").to_string())
+        .collect();
+    Ok((format!("0x{index:x}"), path))
+}
+
+/// A subproof packed for the outer circuit (an `OuterCircuitProof`).
+pub struct OuterSubproof {
+    pub proof: Vec<String>,
+    pub public_inputs: Vec<String>,
+    pub vkey: Vec<String>,
+    pub key_hash: String,
+    pub tree_hash_path: Vec<String>,
+    pub tree_index: String,
+}
+
+impl OuterSubproof {
+    fn to_json(&self, public_inputs: &[String]) -> Value {
+        json!({
+            "vkey": self.vkey,
+            "proof": self.proof,
+            "public_inputs": public_inputs,
+            "key_hash": self.key_hash,
+            "tree_hash_path": self.tree_hash_path,
+            "tree_index": self.tree_index,
+        })
+    }
+}
+
+/// `NullifierType.NONE`: the proof carries no scoped nullifier.
+const NULLIFIER_TYPE_NONE: u8 = 4;
+
+/// `getOuterCircuitInputs`. Disclosure PI layout:
+/// [0]=comm_in [1]=current_date [2]=scope [3]=subscope [4]=param_commitment
+/// [5]=nullifier_type [6]=scoped_nullifier [7]=oprf_pk_hash
+pub fn get_outer_circuit_inputs(
+    csc_to_dsc: &OuterSubproof,
+    dsc_to_id: &OuterSubproof,
+    integrity: &OuterSubproof,
+    disclosures: &[OuterSubproof],
+    circuit_registry_root: &str,
+) -> Result<Value, String> {
+    let mut inputs = disclosure_outer_inputs(disclosures, circuit_registry_root)?;
+    inputs["certificate_registry_root"] = json!(csc_to_dsc.public_inputs[0]);
+    // csc_to_dsc drops PI[0] (the cert registry root).
+    inputs["csc_to_dsc_proof"] = csc_to_dsc.to_json(&csc_to_dsc.public_inputs[1..]);
+    inputs["dsc_to_id_data_proof"] = dsc_to_id.to_json(&dsc_to_id.public_inputs);
+    inputs["integrity_check_proof"] = integrity.to_json(&integrity.public_inputs);
+    // Since 0.23.0 the integrity proof outputs the verification method, which the outer checks
+    if let Some(scheme) = integrity.public_inputs.get(2) {
+        inputs["verification_method"] = json!(scheme);
+    }
+    Ok(inputs)
+}
+
+/// `getAadhaarOuterCircuitInputs`. `aadhaar_id` PI layout:
+/// [0]=certificate_registry_root [1]=comm_out [2]=verification_method
+pub fn get_aadhaar_outer_circuit_inputs(
+    aadhaar_id: &OuterSubproof,
+    disclosures: &[OuterSubproof],
+    circuit_registry_root: &str,
+) -> Result<Value, String> {
+    let [certificate_registry_root, _comm_out, verification_method] = &aadhaar_id.public_inputs[..]
+    else {
+        return Err("aadhaar_id proof must have 3 public inputs".into());
+    };
+    let mut inputs = disclosure_outer_inputs(disclosures, circuit_registry_root)?;
+    inputs["certificate_registry_root"] = json!(certificate_registry_root);
+    inputs["verification_method"] = json!(verification_method);
+    inputs["aadhaar_id_proof"] = aadhaar_id.to_json(&aadhaar_id.public_inputs);
+    Ok(inputs)
+}
+
+/// `getDisclosureOuterInputs`
+fn disclosure_outer_inputs(
+    disclosures: &[OuterSubproof],
+    circuit_registry_root: &str,
+) -> Result<Value, String> {
+    let field = |p: &OuterSubproof, index: usize| {
+        p.public_inputs.get(index).and_then(|n| {
+            BigUint::parse_bytes(n.strip_prefix("0x").unwrap_or(n).as_bytes(), 16)
+        })
+    };
+    let zero = BigUint::from(0u8);
+    // All subproofs carry the same date, scope and subscope, so the first one provides them
+    let source = disclosures.first().ok_or("At least one disclosure proof is required")?;
+    // The nullifier may sit on another subproof, or on none when the request asks for no identifier
+    let with_nullifier = disclosures
+        .iter()
+        .find(|p| field(p, 6).is_some_and(|n| n != zero));
+    // A mock type must win at the top level so mock proofs stay detectable
+    let nullifier_type_source = with_nullifier
+        .or_else(|| {
+            disclosures
+                .iter()
+                .find(|p| field(p, 5).is_some_and(|t| t != BigUint::from(NULLIFIER_TYPE_NONE)))
+        })
+        .unwrap_or(source);
+    let nullifier_source = with_nullifier.unwrap_or(source);
+
+    let current_date: u64 = field(source, 1)
+        .and_then(|b| u64::try_from(b).ok())
+        .unwrap_or(0);
+    let param_commitments: Vec<String> = disclosures
+        .iter()
+        .map(|p| p.public_inputs[4].clone())
+        .collect();
+
+    Ok(json!({
+        "circuit_registry_root": circuit_registry_root,
+        "current_date": current_date,
+        "service_scope": source.public_inputs[2],
+        "service_subscope": source.public_inputs[3],
+        "param_commitments": param_commitments,
+        "scoped_nullifier": nullifier_source.public_inputs[6],
+        "nullifier_type": nullifier_type_source.public_inputs[5],
+        "oprf_pk_hash": nullifier_source.public_inputs[7],
+        "disclosure_proofs": disclosures.iter().map(|p| {
+            let reordered = vec![
+                p.public_inputs[0].clone(), // comm_in
+                p.public_inputs[6].clone(), // scoped_nullifier
+                p.public_inputs[5].clone(), // nullifier_type
+                p.public_inputs[7].clone(), // oprf_pk_hash
+            ];
+            p.to_json(&reordered)
+        }).collect::<Vec<_>>(),
+    }))
+}
+
+/// `getOuterCircuit` naming: N = disclosure_count + 3, range 4..=13.
+pub fn outer_circuit_name(disclosure_count: usize, evm: bool) -> Result<String, String> {
+    let n = disclosure_count + 3;
+    if !(4..=13).contains(&n) {
+        return Err(format!("Unsupported number of subproofs: {n} (expected 4-13)"));
+    }
+    Ok(format!("outer_{}count_{n}", if evm { "evm_" } else { "" }))
+}
+
+/// `getAadhaarOuterCircuitName`: N = disclosure_count + 1, range 2..=11.
+pub fn aadhaar_outer_circuit_name(disclosure_count: usize, evm: bool) -> Result<String, String> {
+    if !(1..=10).contains(&disclosure_count) {
+        return Err(format!("No outer circuit for {disclosure_count} disclosure proofs: expected 1 to 10"));
+    }
+    Ok(format!("outer_{}aadhaar_count_{}", if evm { "evm_" } else { "" }, disclosure_count + 1))
+}
+
+#[cfg(test)]
+mod verification_method_tests {
+    use super::*;
+
+    #[test]
+    fn the_scheme_is_carried_from_0_23_0() {
+        assert!(!has_verification_method(None));
+        assert!(!has_verification_method(Some("0.22.0")));
+        assert!(has_verification_method(Some("0.23.0")));
+        assert!(has_verification_method(Some("0.23.1")));
+        assert!(has_verification_method(Some("1.0.0")));
+        assert_eq!(num_public_inputs("data_check_integrity_sa_sha256", Some("0.22.0")), 2);
+        assert_eq!(num_public_inputs("data_check_integrity_sa_sha256", Some("0.23.0")), 3);
+        assert_eq!(num_public_inputs("outer_evm_count_6", Some("0.22.0")), 11);
+        assert_eq!(num_public_inputs("outer_evm_count_6", Some("0.23.0")), 12);
+        assert_eq!(num_public_inputs("sig_check_dsc_x", Some("0.23.0")), 2);
+        assert_eq!(num_public_inputs("compare_age", Some("0.23.0")), 8);
+    }
+
+    fn subproof(public_inputs: &[&str]) -> OuterSubproof {
+        OuterSubproof {
+            vkey: vec![],
+            proof: vec![],
+            public_inputs: public_inputs.iter().map(|s| s.to_string()).collect(),
+            key_hash: "0x1".into(),
+            tree_hash_path: vec![],
+            tree_index: "0".into(),
+        }
+    }
+
+    #[test]
+    fn the_outer_inputs_take_the_scheme_from_the_integrity_proof() {
+        let dsc = subproof(&["0xroot", "0xa"]);
+        let id = subproof(&["0xa", "0xb"]);
+        let disclosure = subproof(&["0xc", "0x5", "0x0", "0x0", "0xp", "0x1", "0x9", "0x0"]);
+        let integrity = subproof(&["0xb", "0xc", "0x64"]);
+        let disclosures = std::slice::from_ref(&disclosure);
+        let with = get_outer_circuit_inputs(&dsc, &id, &integrity, disclosures, "0xr").unwrap();
+        assert_eq!(with["verification_method"], "0x64");
+        let legacy = subproof(&["0xb", "0xc"]);
+        let without = get_outer_circuit_inputs(&dsc, &id, &legacy, disclosures, "0xr").unwrap();
+        assert!(without.get("verification_method").is_none());
+    }
+}

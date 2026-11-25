@@ -1,55 +1,67 @@
 import { describeQuery, type QueryDescriptionItem } from "@zkpassport/ui/hosted"
 import type { Query } from "@zkpassport/sdk"
 
-import { ICON_CHECK, ICON_EPASSPORT_CHIP } from "../shared/icons"
-import { Main } from "../shared/controls"
+import { ICON_CHECK } from "../shared/icons"
+import { Heading, Main, Primary, Secondary } from "../shared/controls"
 
 const SKELETON_ROWS = 2
 
 // A preview: the mobile app shows the consent screen that actually binds
 export function Intro({
   appName,
+  logo,
   query,
   purpose,
   onContinue,
+  onChangeWallet,
 }: {
   appName: string
+  logo?: string
   query: Query | null
   purpose?: string
   onContinue: () => void
+  onChangeWallet?: () => void
 }) {
   const items = query ? describeQuery(query) : null
 
   return (
     <div className="flow-body">
       <Main>
-        <p className="flow-lede">
-          {appName} uses ZKPassport to verify your identity privately. Your ID is checked on your
-          phone, and its details never reach a server.
-        </p>
+        <Heading title="Verify your identity privately" lock="Your ID never leaves your phone" />
 
-        <div className="intro-asks">
-          <p className="intro-asks-head">{appName} wants to verify</p>
-          {items ? <Asks items={items} purpose={purpose} /> : <AsksLoading />}
-        </div>
+        <IntroAsks appName={appName} logo={logo} items={items} purpose={purpose} />
 
         <div className="intro-chip">
-          <span
-            className="intro-chip-mark"
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: ICON_EPASSPORT_CHIP }}
-          />
-          <p className="intro-chip-question">Do you have a passport or ID with a chip?</p>
-          <p className="intro-chip-hint">
-            Look for this symbol on your passport or ID card. Your phone reads the chip when you
-            hold it against the ID.
-          </p>
-          <button type="button" className="flow-primary" disabled={!items} onClick={onContinue}>
+          <Primary forward disabled={!items} onClick={onContinue}>
             Continue
-          </button>
-          <p className="intro-privacy">Your ID data never leaves your device.</p>
+          </Primary>
+          {onChangeWallet ? (
+            <Secondary onClick={onChangeWallet}>Use another wallet</Secondary>
+          ) : null}
         </div>
       </Main>
+    </div>
+  )
+}
+
+export function IntroAsks({
+  appName,
+  logo,
+  items,
+  purpose,
+}: {
+  appName: string
+  logo?: string
+  items: QueryDescriptionItem[] | null
+  purpose?: string
+}) {
+  return (
+    <div className="intro-asks">
+      <p className="intro-asks-head">
+        {logo ? <img className="intro-asks-logo" src={logo} alt="" /> : null}
+        {appName} wants to verify
+      </p>
+      {items ? <Asks items={items} purpose={purpose} /> : <AsksLoading />}
     </div>
   )
 }

@@ -48,18 +48,13 @@ describe("toWireQuery", () => {
   test("disclosure carries through alongside a constraint", () => {
     expect(toWireQuery({ nationality: { included: ["FRA"], disclose: true } })).toEqual({
       nationality: { in: ["FRA"], disclose: true },
-      document_type: { disclose: true },
     })
   })
 
-  test("disclosing anything also discloses the document type", () => {
+  test("the document type is left to the SDK, which adds it when the request is built", () => {
     expect(toWireQuery({ firstname: { disclose: true } })).toEqual({
       firstname: { disclose: true },
-      document_type: { disclose: true },
     })
-  })
-
-  test("disclosing only the document type does not sustain the injection", () => {
     expect(toWireQuery({ document_type: { disclose: true } })).toEqual({
       document_type: { disclose: true },
     })
@@ -125,7 +120,6 @@ describe("toWireQuery", () => {
       fullname: { disclose: true },
       gender: { disclose: true },
       document_number: { disclose: true },
-      document_type: { disclose: true },
       sanctions: { strict: true },
       facematch: { mode: "strict" },
       bind: { user_address: "0xabc", chain: "ethereum" },
