@@ -56,7 +56,7 @@ export type TestEnv = {
     proofs: ProofResult[]
     queryResult: QueryResult
     originalQuery: Query
-    /** The circuit manifest the circuits CDN serves verify() for the proofs' version */
+    /** The circuit manifest the circuits CDN serves verify(), whichever manifest it asks for */
     circuitManifest?: CircuitManifest
   }) => Promise<VerificationResult>
   /** Stop everything, including the bridges of every headless app it ran */
@@ -80,10 +80,12 @@ export async function startTestEnv(): Promise<TestEnv> {
   }
   const { circuits, circuitVersion } = loadedCircuits
   const serveLocalCircuits = circuits && serveCircuits(circuits, SEPOLIA.circuitUrl)
-  const manifestOverrides = new Map<string, CircuitManifest>()
+  let manifestOverride: CircuitManifest | undefined
   const fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS, (url) => {
-    const manifest = manifestOverrides.get(url)
-    return manifest ? Response.json(manifest) : serveLocalCircuits?.(url)
+    const isManifestRequest = url.startsWith(SEPOLIA.circuitUrl) && url.endsWith("/manifest.json")
+    return manifestOverride && isManifestRequest
+      ? Response.json(manifestOverride)
+      : serveLocalCircuits?.(url)
   })
 
   const apps: HeadlessApp[] = []
@@ -111,10 +113,7 @@ export async function startTestEnv(): Promise<TestEnv> {
       return app
     },
     verify: async ({ proofs, queryResult, originalQuery, circuitManifest }) => {
-      if (circuitManifest) {
-        const url = registry.getUrlForCircuitManifestByVersion(circuitManifest.version)
-        manifestOverrides.set(url, circuitManifest)
-      }
+      manifestOverride = circuitManifest
 
       try {
         return await zkPassport.verify({
@@ -126,7 +125,7 @@ export async function startTestEnv(): Promise<TestEnv> {
           config: { rpcUrl: fork.rpcUrl },
         })
       } finally {
-        manifestOverrides.clear()
+        manifestOverride = undefined
       }
     },
     stop: async () => {

@@ -67,19 +67,19 @@ describe("compressed mode, end to end on a Sepolia fork", () => {
     expect(verification.verified).toBe(false)
   }, 60_000)
 
-  test("the outer proof does not verify against a circuit manifest of another root than it commits to", async () => {
+  test("verify() refuses a circuit manifest of another root than the outer proof commits to", async () => {
     const { proofs, result: queryResult } = app.request.result()!
     const manifest = await testEnv.registry.getCircuitManifest(undefined, {
       version: proofs[0].version,
     })
 
-    const verification = await testEnv.verify({
+    const verification = testEnv.verify({
       proofs,
       queryResult,
       originalQuery: app.request.query,
       circuitManifest: await withFakeCircuit(manifest),
     })
-    expect(verification.verified).toBe(false)
+    await expect(verification).rejects.toThrow("Validation failed for circuit manifest")
   }, 60_000)
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {

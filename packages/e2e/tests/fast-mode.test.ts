@@ -93,6 +93,9 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       originalQuery: retiredApp.request.query,
     })
     expect(verification.verified).toBe(false)
+    expect(verification.queryResultErrors?.outer?.circuit?.message).toBe(
+      "The proof uses an unrecognized circuit",
+    )
   }, 180_000)
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {

@@ -16,11 +16,7 @@ import {
   type ProofMode,
   type BoundData,
   type Service,
-  type CircuitManifest,
   NullifierType,
-  getProofData,
-  getNumberOfPublicInputs,
-  getCircuitRegistryRootFromOuterProof,
   formatQueryResultDates,
   getChainFromQuery,
   VerificationMethod,
@@ -32,7 +28,7 @@ import {
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
-import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
+import { createRegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface, type KeyPair } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -158,25 +154,6 @@ function enforceUniqueIdentifierType(
     uniqueIdentifierType: undefined,
     verified: false,
   }
-}
-
-async function isCircuitManifestRootAccepted(
-  manifest: CircuitManifest,
-  proofs: ProofResult[],
-  rootTimestamp: number | undefined,
-  registryClient: RegistryClient,
-): Promise<boolean> {
-  const outerProof = proofs.find((proof) => proof.name?.startsWith("outer"))
-  if (outerProof) {
-    // The public input checks accepted the root an outer proof commits to on chain
-    const proofData = getProofData(
-      outerProof.proof as string,
-      getNumberOfPublicInputs(outerProof.name!),
-    )
-    return getCircuitRegistryRootFromOuterProof(proofData) === BigInt(manifest.root)
-  }
-
-  return registryClient.isCircuitRootValid(manifest.root, rootTimestamp)
 }
 
 export {
@@ -1133,6 +1110,7 @@ export class ZKPassport {
         uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
         queryResultErrors: queryResultErrorsFromPublicInputs,
         rootTimestamp,
+        circuitRegistryRoot,
         verificationMethod: verificationMethodFromPublicInputs,
       } = await PublicInputChecker.checkPublicInputs(
         this.domain,
@@ -1166,16 +1144,27 @@ export class ZKPassport {
       }
       // Only proceed with the proof verification if the public inputs are correct
       if (verified) {
-        const circuitManifest = await registryClient.getCircuitManifest(undefined, {
-          // We assume all proofs have the same version
-          version: proofs[0].version,
-        })
-        verified = await isCircuitManifestRootAccepted(
-          circuitManifest,
-          proofs,
-          rootTimestamp,
-          registryClient,
-        )
+        // The public input checks accepted the root an outer proof commits to
+        const circuitManifest = circuitRegistryRoot
+          ? await registryClient.getCircuitManifest(circuitRegistryRoot)
+          : await registryClient.getCircuitManifest(undefined, {
+              // We assume all proofs have the same version
+              version: proofs[0].version,
+            })
+
+        if (!circuitRegistryRoot) {
+          const circuitRootCheck = await PublicInputChecker.checkCircuitRegistryRoot(
+            circuitManifest.root,
+            {},
+            devMode,
+            rootTimestamp,
+            originalQuery,
+            registryClient,
+          )
+          verified = circuitRootCheck.isCorrect
+          queryResultErrors = verified ? undefined : circuitRootCheck.queryResultErrors
+        }
+
         for (const proof of proofs) {
           if (!verified) {
             // Break the loop if the proof is not valid

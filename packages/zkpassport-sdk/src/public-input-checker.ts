@@ -2562,6 +2562,7 @@ export class PublicInputChecker {
         )
       : undefined
     const bundleRootTimestamp = bundleDate ? Math.floor(bundleDate.getTime() / 1000) : undefined
+    let outerCircuitRegistryRoot: string | undefined
 
     for (const proof of sortedProofs!) {
       const proofData = getProofData(
@@ -2592,6 +2593,7 @@ export class PublicInputChecker {
         }
 
         const circuitRegistryRoot = getCircuitRegistryRootFromOuterProof(proofData)
+        outerCircuitRegistryRoot = `0x${circuitRegistryRoot.toString(16).padStart(64, "0")}`
         const {
           isCorrect: isCorrectCircuitRegistryRoot,
           queryResultErrors: queryResultErrorsCircuitRegistryRoot,
@@ -4189,6 +4191,7 @@ export class PublicInputChecker {
       uniqueIdentifierType,
       queryResultErrors,
       rootTimestamp: bundleRootTimestamp,
+      circuitRegistryRoot: outerCircuitRegistryRoot,
       verificationMethod: scheme,
     }
   }

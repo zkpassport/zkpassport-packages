@@ -7,39 +7,38 @@ import ZKPassportVerifierAbi from "../src/assets/abi/ZKPassportVerifier.json"
 import * as bbVerifier from "../src/bb-verifier"
 import { ZKPassport } from "../src/index"
 import { PublicInputChecker } from "../src/public-input-checker"
-import { fakeOuterProofCommittingTo } from "./helpers"
 
 describe("verify() config.rpcUrl", () => {
   const circuitVersion = "0.21.0"
   const outerEvmProofName = "outer_evm_3"
   const outerEvmCircuitHash = "0x0000000000000000000000000000000000000000000000000000000000000001"
-  let proofs: ProofResult[]
+  const proofs: ProofResult[] = [
+    {
+      name: outerEvmProofName,
+      version: circuitVersion,
+      vkeyHash: outerEvmCircuitHash,
+      proof: "00".repeat(32 * 20),
+    },
+  ]
   const originalQuery: Query = { age: { gte: 18 } }
   const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
   const rpcUrl = "http://rpc.test"
 
+  let circuitRoot: string
   let originalFetch: typeof globalThis.fetch
   let fetchedUrls: string[]
   let publicInputCheckerSpy: ReturnType<typeof spyOn>
   let bbVerifierSpy: ReturnType<typeof spyOn>
 
   beforeEach(async () => {
-    const circuitRoot = await calculateCircuitRoot({ hashes: [outerEvmCircuitHash] })
-    proofs = [
-      {
-        name: outerEvmProofName,
-        version: circuitVersion,
-        vkeyHash: outerEvmCircuitHash,
-        proof: fakeOuterProofCommittingTo(circuitRoot),
-      },
-    ]
+    circuitRoot = await calculateCircuitRoot({ hashes: [outerEvmCircuitHash] })
 
     originalFetch = globalThis.fetch
     fetchedUrls = []
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(input.toString()).href
       fetchedUrls.push(url)
-      if (url.includes("/by-version/")) {
+      if (url.includes("/by-root/")) {
         return Response.json({
           version: circuitVersion,
           root: circuitRoot,
@@ -70,6 +69,7 @@ describe("verify() config.rpcUrl", () => {
       uniqueIdentifierType: NullifierType.NON_SALTED,
       queryResultErrors: {},
       rootTimestamp: undefined,
+      circuitRegistryRoot: circuitRoot,
       verificationMethod: 100,
     })
     bbVerifierSpy = spyOn(bbVerifier, "createUltraHonkVerifier").mockResolvedValue({
@@ -103,7 +103,7 @@ describe("verify() config.rpcUrl", () => {
     const defaults = createRegistryClient("ethereum")
     expect(verified).toBe(true)
     expect(fetchedUrls).toEqual([
-      new URL(defaults.getUrlForCircuitManifestByVersion(circuitVersion)).href,
+      new URL(defaults.getUrlForCircuitManifestByRoot(circuitRoot)).href,
       new URL(defaults.getUrlForPackagedCircuits(outerEvmCircuitHash)).href,
       new URL(rpcUrl).href,
     ])
