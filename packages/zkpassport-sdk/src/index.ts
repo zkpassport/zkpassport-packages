@@ -27,6 +27,7 @@ import {
   type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
+import { waitForBridgeConnection } from "./bridge-connection"
 import { Buffer } from "buffer/"
 import { createRegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface, type KeyPair } from "@obsidion/bridge"
@@ -68,6 +69,7 @@ if (typeof globalThis.Buffer === "undefined") {
 }
 
 const DEFAULT_PURPOSE = "Verify identity privately"
+const BRIDGE_CONNECT_TIMEOUT_MS = 10_000
 
 type RegistryClientOptions = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
@@ -851,6 +853,11 @@ export class ZKPassport {
       bridgeUrl,
       replayFrom: replayMissedMessages ? 1 : undefined,
     })
+
+    // The bridge takes the first connection to a request as the website's. The request must not
+    // be handed out, to be scanned, before this connection is open: a phone that got there first
+    // would be reported as the website, and its handshake would be missed.
+    await waitForBridgeConnection(bridge, BRIDGE_CONNECT_TIMEOUT_MS)
 
     const topic = bridge.connection.getBridgeId()
 
