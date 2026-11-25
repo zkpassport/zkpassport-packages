@@ -40,7 +40,10 @@ export function Scan({
   return (
     <div className="flow-body">
       <Main>
-        <Heading title={mobile ? "Scan from another phone" : "Scan with your phone"} />
+        <Heading
+          title={mobile ? "Scan from another phone" : "Scan with your phone"}
+          hint={mobile ? undefined : "Continue the verification on your iPhone or Android phone"}
+        />
         <div className="scan-slot" data-state={state}>
           <div className="scan-skeleton" />
           <div
