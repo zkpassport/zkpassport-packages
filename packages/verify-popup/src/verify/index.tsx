@@ -16,7 +16,7 @@ import { codeReplaced, codeShown, type Attempts } from "./lane"
 import { describePhoneError } from "./phone-errors"
 import { Scan } from "./scan"
 import { useRequestUrl } from "./use-request-url"
-import { Waiting, withProof, type ScanProgress } from "./waiting"
+import { Waiting, withProof, type PhoneState, type ScanProgress } from "./waiting"
 
 /** A rejected promise on `success` keeps the result from being shown as verified. */
 export type SendEvent = (message: OutgoingEvent) => void | Promise<void>
@@ -136,7 +136,9 @@ export function VerifyRequest({
   // A dashboard policy arrives as {}: the real checks come back from the SDK
   const hasQuery = Object.keys(query ?? {}).length > 0
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
-  const [unconfirmed, setUnconfirmed] = useState(scan !== null)
+  const [phone, setPhone] = useState<PhoneState>(() =>
+    scan !== null && session.resumed && readSession(session)?.keyPair ? "checking" : null,
+  )
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [attempts, setAttempts] = useState<Attempts>(() => {
@@ -167,6 +169,7 @@ export function VerifyRequest({
   const startAgain = () => {
     setFailure(null)
     setScan(null)
+    setPhone(null)
     updateSession(session, { stage: undefined })
     recordAttempts(codeReplaced(attempts))
     req.retry()
@@ -182,19 +185,16 @@ export function VerifyRequest({
           .catch(failFrom)
       },
       onReceived: () => {
-        setUnconfirmed(false)
         setScan({ stage: "scanned" })
         updateSession(session, { stage: "scanned" })
         send({ type: "request-received" })
       },
       onProving: () => {
-        setUnconfirmed(false)
         setScan({ stage: "proving", done: 0, total: null })
         updateSession(session, { stage: "proving" })
         send({ type: "generating" })
       },
       onProof: (proof) => {
-        setUnconfirmed(false)
         setScan((current) => withProof(current, proof))
         send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
       },
@@ -232,6 +232,8 @@ export function VerifyRequest({
           keepsBridge: true,
         })
       },
+      onPhoneConnected: (connected) =>
+        setPhone((current) => (current === null ? null : connected ? "connected" : "gone")),
     },
   )
 
@@ -278,12 +280,7 @@ export function VerifyRequest({
         />
       ) : null}
       {screen === "waiting" && scan ? (
-        <Waiting
-          progress={scan}
-          onStartAgain={startAgain}
-          unconfirmed={unconfirmed}
-          requestUrl={link.url}
-        />
+        <Waiting progress={scan} onStartAgain={startAgain} phone={phone} requestUrl={link.url} />
       ) : null}
       {screen === "scan" ? (
         <Scan

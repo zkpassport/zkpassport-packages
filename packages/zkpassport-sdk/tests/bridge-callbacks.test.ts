@@ -77,3 +77,60 @@ describe("Bridge connection callbacks", () => {
     expect(lost).toBe(0)
   })
 })
+
+describe("isPhoneConnected", () => {
+  let originalFetch: typeof globalThis.fetch
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response("{}", {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      })) as unknown as typeof globalThis.fetch
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  async function createRequest(phoneAnswers: boolean) {
+    const zkPassport = new ZKPassport("localhost")
+    const request = (await zkPassport.request({ name: "Test App", purpose: "Testing" })).done()
+    const bridge = (zkPassport as any).topicToBridge[request.requestId]
+    const sent: unknown[] = []
+    bridge.isBridgeConnected = () => true
+    bridge.connection.getWebSocket = () => ({
+      send: (data: string) => {
+        sent.push(JSON.parse(data))
+        if (phoneAnswers) {
+          void bridge.connection.emit(
+            "raw-message-received",
+            JSON.stringify({ method: "pong", params: {}, nocache: true }),
+          )
+        }
+      },
+    })
+    return { zkPassport, request, sent }
+  }
+
+  test("is true when the phone answers a ping", async () => {
+    const { zkPassport, request, sent } = await createRequest(true)
+
+    expect(await zkPassport.isPhoneConnected(request.requestId, 200)).toBe(true)
+    expect(sent).toEqual([{ method: "ping", params: {}, nocache: true }])
+  })
+
+  test("is false when nothing answers in time", async () => {
+    const { zkPassport, request } = await createRequest(false)
+
+    expect(await zkPassport.isPhoneConnected(request.requestId, 50)).toBe(false)
+  })
+
+  test("is false for a request that no longer exists", async () => {
+    const { zkPassport, request } = await createRequest(true)
+    zkPassport.cancelRequest(request.requestId)
+
+    expect(await zkPassport.isPhoneConnected(request.requestId, 50)).toBe(false)
+  })
+})

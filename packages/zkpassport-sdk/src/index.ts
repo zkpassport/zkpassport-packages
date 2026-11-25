@@ -1291,6 +1291,51 @@ export class ZKPassport {
   }
 
   /**
+   * @notice Checks whether the phone that picked up a request is still on its bridge, by sending a
+   * ping that the phone answers. A request read back after a reload only knows how far the phone
+   * once got, not that it is still there.
+   * @param requestId The request ID.
+   * @param timeoutMs How long to wait for the phone to answer.
+   * @returns True when the phone answers in time; false when it does not, or the request is gone.
+   */
+  public isPhoneConnected(requestId: string, timeoutMs = 5000): Promise<boolean> {
+    const bridge = this.topicToBridge[requestId]
+    if (!bridge) return Promise.resolve(false)
+    return new Promise((resolve) => {
+      let settled = false
+      const ping = () => {
+        try {
+          bridge.connection
+            .getWebSocket()
+            ?.send(JSON.stringify({ method: "ping", params: {}, nocache: true }))
+        } catch (reason) {
+          logger.debug("Could not ping the phone:", reason)
+        }
+      }
+      const stopListening = bridge.onRawMessage((raw: unknown) => {
+        let method: unknown
+        try {
+          method = JSON.parse(String(raw))?.method
+        } catch {
+          return
+        }
+        if (method === "pong" || method === "ping") finish(true)
+      })
+      const stopWaitingForConnect = bridge.onConnect(ping)
+      const timer = setTimeout(() => finish(false), timeoutMs)
+      function finish(connected: boolean) {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        stopListening()
+        stopWaitingForConnect()
+        resolve(connected)
+      }
+      if (bridge.isBridgeConnected()) ping()
+    })
+  }
+
+  /**
    * @notice Cancels a request by closing the WebSocket connection and deleting the associated data.
    * @param requestId The request ID.
    */

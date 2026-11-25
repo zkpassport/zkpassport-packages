@@ -20,15 +20,17 @@ export function withProof(
   return { ...progress, done: progress.done + 1, total: proof.total ?? progress.total }
 }
 
+export type PhoneState = "checking" | "connected" | "gone" | null
+
 export function Waiting({
   progress,
   onStartAgain,
-  unconfirmed = false,
+  phone = null,
   requestUrl = null,
 }: {
   progress: ScanProgress
   onStartAgain: () => void
-  unconfirmed?: boolean
+  phone?: PhoneState
   requestUrl?: string | null
 }) {
   const approving = progress.stage === "scanned"
@@ -36,6 +38,35 @@ export function Waiting({
   const [mobile] = useState(isMobileLike)
   const { openApp } = useOpenApp(requestUrl, { probe: false })
   const canOpenApp = mobile && requestUrl !== null
+
+  if (phone === "gone") {
+    return (
+      <div className="flow-body">
+        <Main>
+          <Heading title="Your phone isn’t connected" />
+          <div className="flow-waiting">
+            <PhoneSwipe />
+            <p className="flow-hint" role="status">
+              ZKPassport was closed before it finished. Start again to continue.
+            </p>
+          </div>
+        </Main>
+        <Actions>
+          <Primary forward onClick={onStartAgain}>
+            Start again
+          </Primary>
+        </Actions>
+        {canOpenApp ? (
+          <FootLinks>
+            <button type="button" className="scan-reveal" onClick={openApp}>
+              Open ZKPassport again
+            </button>
+          </FootLinks>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div className="flow-body">
       <Main>
@@ -44,27 +75,18 @@ export function Waiting({
           {approving ? <PhoneSwipe /> : <PulsingDots />}
           <div className="flow-waiting-text">
             <p className="flow-hint" role="status">
-              {approving ? "Slide to verify in ZKPassport" : caption(progress)}
+              {phone === "checking"
+                ? "Checking your phone…"
+                : approving
+                  ? "Slide to verify in ZKPassport"
+                  : caption(progress)}
             </p>
             <p className="flow-keep-open">
-              {unconfirmed
-                ? canOpenApp
-                  ? "Nothing in ZKPassport? Open it again, or start again."
-                  : "Nothing on your phone? Start again."
-                : slow
-                  ? "Taking longer than usual. Check your phone."
-                  : "Keep this window open"}
+              {slow ? "Taking longer than usual. Check your phone." : "Keep this window open"}
             </p>
           </div>
         </div>
       </Main>
-      {unconfirmed && canOpenApp ? (
-        <Actions>
-          <Primary forward onClick={openApp}>
-            Open ZKPassport again
-          </Primary>
-        </Actions>
-      ) : null}
       <FootLinks>
         <button type="button" className="scan-reveal" onClick={onStartAgain}>
           Start again
