@@ -30,13 +30,13 @@ export function buttonLabel(label: string | undefined, resumable = false): strin
 // longer does
 export const BUTTON_CAPTION = "Private identity verification by ZKPassport"
 
-export function isButtonDisabled(status: VerificationStatus): boolean {
-  return status === "in-progress" || status === "success"
+export function isButtonDisabled(status: VerificationStatus, resumable = false): boolean {
+  return (status === "in-progress" && !resumable) || status === "success"
 }
 
 export function buttonTooltip(status: VerificationStatus, resumable = false): string {
-  if (status === "in-progress") return "Verification is running in the ZKPassport window"
   if (status === "success") return "Verification complete"
   if (resumable) return "Returns to the verification you started"
+  if (status === "in-progress") return "Verification is running in the ZKPassport window"
   return "Opens a secure ZKPassport window"
 }

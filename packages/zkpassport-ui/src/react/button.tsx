@@ -76,7 +76,7 @@ function BrandedButton({
         type="button"
         className="zkp-verify-button"
         data-status={status}
-        disabled={isButtonDisabled(status)}
+        disabled={isButtonDisabled(status, resumable)}
         title={buttonTooltip(status, resumable)}
         onClick={verification.verify}
       >
