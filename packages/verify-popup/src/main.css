@@ -1169,19 +1169,6 @@ a.flow-address[data-chip]:hover {
   margin-top: auto;
   padding: 12px 0 6px;
 }
-/* Nothing opened: installing leads, and opening the app steps back to a secondary action the user
-   can still take if the probe got it wrong */
-.scan-hero[data-state="nothing-opened"] .flow-primary {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--zkp-border);
-  color: var(--zkp-brand);
-}
-.scan-hero[data-state="nothing-opened"] .scan-install {
-  background: var(--zkp-surface);
-  border-color: var(--zkp-brand);
-  box-shadow: 0 0 0 1px var(--zkp-brand);
-  padding: 16px;
-}
 .scan-reveal {
   appearance: none;
   border: none;
@@ -1197,6 +1184,16 @@ a.flow-address[data-chip]:hover {
 a.flow-primary {
   text-align: center;
   text-decoration: none;
+}
+
+/* Centred in the room between the title and the buttons */
+.scan-store {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: auto 0;
+  text-align: center;
 }
 
 .scan-escape {
