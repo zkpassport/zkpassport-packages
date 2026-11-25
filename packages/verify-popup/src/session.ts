@@ -59,7 +59,9 @@ function hexToBytes(hex: Hex): Uint8Array {
  */
 export function openSession(): Session {
   sweepExpiredSessions()
-  const fromUrl = new URLSearchParams(window.location.search).get("s")
+  const fromUrl =
+    new URLSearchParams(new URL(window.location.href).hash.slice(1)).get("s") ??
+    new URLSearchParams(window.location.search).get("s")
   if (fromUrl) return { id: fromUrl, resumed: read(fromUrl) !== null, fromUrl: true }
 
   // Older callers open the popup without one, so it names itself

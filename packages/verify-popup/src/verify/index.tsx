@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import type { QueryBuilderResult } from "@zkpassport/sdk"
 import type { PopupConfigureMessage } from "@zkpassport/sdk/popup"
+import { describeQuery, isMobileLike } from "@zkpassport/ui/hosted"
 
 import type { OutgoingEvent } from "../app"
 import { FlowCard } from "../shared/flow-card"
@@ -11,7 +12,7 @@ import { ErrorScreen } from "../shared/error"
 import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
-import { Intro } from "./intro"
+import { Intro, IntroAsks } from "./intro"
 import { codeReplaced, codeShown, type Attempts } from "./lane"
 import { describePhoneError } from "./phone-errors"
 import { Scan } from "./scan"
@@ -132,7 +133,7 @@ export function VerifyRequest({
   onRequestCreated,
 }: VerifyRequestProps) {
   // Coming back to this page should not ask for anything the user has already done
-  const [consented, setConsented] = useState(session.resumed)
+  const [consented, setConsented] = useState(() => session.resumed || isMobileLike())
   // A dashboard policy arrives as {}: the real checks come back from the SDK
   const hasQuery = Object.keys(query ?? {}).length > 0
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
@@ -248,6 +249,8 @@ export function VerifyRequest({
   const link = useRequestUrl(req.url, request, attempts.stalledAttempts)
   const appClip = useContinueToAppClip(link.url, () => setConsented(true))
 
+  const askedQuery = req.query ?? (hasQuery ? query : null)
+
   const screen = (() => {
     if (verified) return "done"
     if (failure) return "error"
@@ -289,13 +292,22 @@ export function VerifyRequest({
           qrSvg={link.qrSvg}
           onNewCode={startAgain}
           appClipOpened={appClip.appClipOpened}
+          sessionId={session.id}
+          asks={
+            <IntroAsks
+              appName={appName}
+              logo={request.logo}
+              items={askedQuery ? describeQuery(askedQuery) : null}
+              purpose={request.purpose}
+            />
+          }
         />
       ) : null}
       {screen === "intro" ? (
         <Intro
           appName={appName}
           logo={request.logo}
-          query={req.query ?? (hasQuery ? query : null)}
+          query={askedQuery}
           purpose={request.purpose}
           onContinue={appClip.onContinue}
         />

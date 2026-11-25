@@ -29,13 +29,7 @@ export function Intro({
       <Main>
         <Heading title="Verify your identity privately" lock="Your ID never leaves your phone" />
 
-        <div className="intro-asks">
-          <p className="intro-asks-head">
-            {logo ? <img className="intro-asks-logo" src={logo} alt="" /> : null}
-            {appName} wants to verify
-          </p>
-          {items ? <Asks items={items} purpose={purpose} /> : <AsksLoading />}
-        </div>
+        <IntroAsks appName={appName} logo={logo} items={items} purpose={purpose} />
 
         <div className="intro-chip">
           <Primary forward disabled={!items} onClick={onContinue}>
@@ -46,6 +40,28 @@ export function Intro({
           ) : null}
         </div>
       </Main>
+    </div>
+  )
+}
+
+export function IntroAsks({
+  appName,
+  logo,
+  items,
+  purpose,
+}: {
+  appName: string
+  logo?: string
+  items: QueryDescriptionItem[] | null
+  purpose?: string
+}) {
+  return (
+    <div className="intro-asks">
+      <p className="intro-asks-head">
+        {logo ? <img className="intro-asks-logo" src={logo} alt="" /> : null}
+        {appName} wants to verify
+      </p>
+      {items ? <Asks items={items} purpose={purpose} /> : <AsksLoading />}
     </div>
   )
 }

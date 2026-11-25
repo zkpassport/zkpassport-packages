@@ -3,12 +3,24 @@ import { detectMobileOs, openRequestInApp } from "@zkpassport/ui/app-link"
 import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
 import { isAppClipLane, isSafariUserAgent, isSamePage } from "../verify/lane"
+import { leaveWithoutAsking } from "./use-confirm-close"
 
 // "opened" is not "idle": the page should say it is waiting, not offer the button again
 type AppOpenState = "idle" | "opening" | "opened" | "nothing-opened"
 
 /** Marks a request page this page opened, so that page closes itself when the user comes back */
 export const CLOSE_ON_RETURN_HASH = "#close-on-return"
+
+function appClipPageFor(requestUrl: string, sessionId: string): string {
+  return `${window.location.origin}/c${new URL(requestUrl).search}#s=${sessionId}`
+}
+
+export function isOnAppClipPage(): boolean {
+  return (
+    /^\/c(\.html)?$/.test(window.location.pathname) &&
+    new URLSearchParams(window.location.hash.slice(1)).has("s")
+  )
+}
 
 /** Whether iOS can show the App Clip card in this browser */
 function showsAppClipCard(): boolean {
@@ -23,7 +35,7 @@ export function canOpenAppClip(requestUrl: string): boolean {
  * iOS shows the App Clip card only on the request page, so that page opens in a new tab. This page
  * holds the live request, so it must stay.
  */
-function openAppClipPage(requestUrl: string) {
+export function openAppClipPage(requestUrl: string) {
   window.open(requestUrl + CLOSE_ON_RETURN_HASH, "_blank", "noopener")
 }
 
@@ -52,7 +64,7 @@ export function useContinueToAppClip(requestUrl: string | null, consent: () => v
  */
 export function useOpenApp(
   requestUrl: string | null,
-  { probe, opened = false }: { probe: boolean; opened?: boolean },
+  { probe, opened = false, sessionId }: { probe: boolean; opened?: boolean; sessionId?: string },
 ) {
   const [openState, setOpenState] = useState<AppOpenState>(opened ? "opened" : "idle")
   const stopProbe = useRef<(() => void) | null>(null)
@@ -65,6 +77,10 @@ export function useOpenApp(
     // Clip card try the full app instead, as from /r. So does the /c page itself: there the link is
     // this page, and the clip didn't take over (iOS offers the clip on this page through its banner)
     if (canOpenAppClip(requestUrl) && !isSamePage(requestUrl, window.location.href)) {
+      if (sessionId) {
+        leaveWithoutAsking(appClipPageFor(requestUrl, sessionId))
+        return
+      }
       openAppClipPage(requestUrl)
       setOpenState("opened")
       return
