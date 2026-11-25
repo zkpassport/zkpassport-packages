@@ -69,6 +69,7 @@ import {
   getBindParameterCommitment,
   formatBoundData,
   getCircuitRegistryRootFromOuterProof,
+  normaliseHash,
   areDatesEqual,
   getBirthdateMinDateTimestamp,
   getBirthdateMaxDateTimestamp,
@@ -2593,7 +2594,7 @@ export class PublicInputChecker {
         }
 
         const circuitRegistryRoot = getCircuitRegistryRootFromOuterProof(proofData)
-        outerCircuitRegistryRoot = `0x${circuitRegistryRoot.toString(16).padStart(64, "0")}`
+        outerCircuitRegistryRoot = normaliseHash(circuitRegistryRoot)
         const {
           isCorrect: isCorrectCircuitRegistryRoot,
           queryResultErrors: queryResultErrorsCircuitRegistryRoot,
