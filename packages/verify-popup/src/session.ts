@@ -5,9 +5,9 @@ import type { PopupConfigureMessage, PopupSuccess } from "@zkpassport/sdk/popup"
 import type { ScanProgress } from "./verify/waiting"
 
 const STORAGE_PREFIX = "zkpassport:session:"
-// Long enough for an App Store install and an ID scan, short enough that the bridge private key is
-// not left lying around afterwards
-const SESSION_MAX_AGE_MS = 30 * 60 * 1000
+// Counted from the last change, so a scan that keeps moving is never cut off, while the bridge
+// private key of one the user walked away from is gone soon after
+const SESSION_IDLE_MS = 5 * 60 * 1000
 
 export type SessionConfiguration = {
   request: PopupConfigureMessage["request"]
@@ -43,6 +43,7 @@ type Hex = `0x${string}`
 
 type StoredSession = Omit<SessionState, "keyPair"> & {
   keyPair?: { privateKey: Hex; publicKey: Hex }
+  updatedAt?: number
 }
 
 function bytesToHex(bytes: Uint8Array): Hex {
@@ -131,7 +132,10 @@ function read(id: string): StoredSession | null {
 
 function write(id: string, state: StoredSession): void {
   try {
-    window.localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(state))
+    window.localStorage.setItem(
+      STORAGE_PREFIX + id,
+      JSON.stringify({ ...state, updatedAt: Date.now() }),
+    )
   } catch (reason) {
     // Without storage the flow still runs, it just cannot survive a reload
     console.warn("[zkpassport] could not save the verification for recovery", reason)
@@ -165,6 +169,7 @@ function sweepExpiredSessions(): void {
 }
 
 function hasExpired(id: string): boolean {
-  const createdAt = read(id)?.createdAt
-  return !createdAt || Date.now() - createdAt >= SESSION_MAX_AGE_MS
+  const stored = read(id)
+  const lastChange = stored?.updatedAt ?? stored?.createdAt
+  return !lastChange || Date.now() - lastChange >= SESSION_IDLE_MS
 }
