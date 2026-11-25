@@ -44,8 +44,9 @@ export function RequestPage() {
                 {appClipBanner ? (
                   <>
                     <p className="flow-lede">
-                      Tap Open in the ZKPassport banner at the top of this page. ZKPassport opens
-                      right away, usually with nothing to install.
+                      Tap <strong>Open App Clip</strong> on the card at the bottom of the screen, or{" "}
+                      <strong>Open</strong> in the ZKPassport banner at the top of this page.
+                      ZKPassport opens right away, usually with nothing to install.
                     </p>
                     <div className="r-actions">
                       <p className="r-note">Prefer the full app?</p>

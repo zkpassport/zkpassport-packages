@@ -208,8 +208,11 @@ function TapAppClipBanner({
   return (
     <div className="flow-body">
       <Main>
-        <Heading title="Continue in ZKPassport" lock="Your ID never leaves your phone" />
-        <p className="flow-lede">Tap Open in the ZKPassport banner at the top of this page.</p>
+        <Heading title="Open the ZKPassport App Clip" lock="Your ID never leaves your phone" />
+        <p className="flow-lede">
+          Tap <strong>Open App Clip</strong> on the card at the bottom of the screen. If you closed
+          it, tap <strong>Open</strong> in the ZKPassport banner at the top of this page.
+        </p>
       </Main>
       <FootLinks>
         <button type="button" className="scan-reveal" onClick={() => openAppClipPage(requestUrl)}>
