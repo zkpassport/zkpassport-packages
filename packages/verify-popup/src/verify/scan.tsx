@@ -2,7 +2,7 @@ import { useState } from "react"
 import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
 import { ICON_ZKP_MARK } from "../shared/icons"
-import { Heading, LockLine, Main, Primary } from "../shared/controls"
+import { FootLinks, Heading, LockLine, Main, Primary } from "../shared/controls"
 import { CopyLink, LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
 import { useOpenApp } from "../shared/use-open-app"
@@ -56,19 +56,21 @@ export function Scan({
         </div>
         <div className="scan-foot">
           <LockLine>Your ID is read on your phone, never uploaded</LockLine>
-          {url ? <CopyLink url={url} /> : null}
-          {mobile ? (
-            <button type="button" className="scan-reveal" onClick={() => setQrRevealed(false)}>
-              Open ZKPassport on this phone instead
-            </button>
-          ) : null}
-          {url && onNewCode ? (
-            <button type="button" className="scan-reveal" onClick={onNewCode}>
-              Having trouble? Get a new code
-            </button>
-          ) : null}
         </div>
       </Main>
+      <FootLinks>
+        {url ? <CopyLink url={url} /> : null}
+        {mobile ? (
+          <button type="button" className="scan-reveal" onClick={() => setQrRevealed(false)}>
+            Open ZKPassport on this phone instead
+          </button>
+        ) : null}
+        {url && onNewCode ? (
+          <button type="button" className="scan-reveal" onClick={onNewCode}>
+            Having trouble? Get a new code
+          </button>
+        ) : null}
+      </FootLinks>
     </div>
   )
 }
@@ -120,18 +122,7 @@ function ContinueInApp({
           </p>
         ) : null}
         <div className="scan-hero" data-state={openState}>
-          {handedOff ? (
-            <>
-              <button type="button" className="scan-reveal" onClick={openApp}>
-                Open ZKPassport again
-              </button>
-              {onStartAgain ? (
-                <button type="button" className="scan-reveal" onClick={onStartAgain}>
-                  Having trouble? Start again
-                </button>
-              ) : null}
-            </>
-          ) : requestUrl ? (
+          {handedOff ? null : requestUrl ? (
             <Primary busy={opening} forward onClick={openApp}>
               {opening
                 ? "Opening…"
@@ -168,11 +159,23 @@ function ContinueInApp({
               <StoreBadges requestUrl={requestUrl} />
             </div>
           )}
-          <button type="button" className="scan-reveal" onClick={onRevealQr}>
-            Use another device instead
-          </button>
         </div>
       </Main>
+      <FootLinks>
+        {handedOff ? (
+          <button type="button" className="scan-reveal" onClick={openApp}>
+            Open ZKPassport again
+          </button>
+        ) : null}
+        {handedOff && onStartAgain ? (
+          <button type="button" className="scan-reveal" onClick={onStartAgain}>
+            Having trouble? Start again
+          </button>
+        ) : null}
+        <button type="button" className="scan-reveal" onClick={onRevealQr}>
+          Use another device instead
+        </button>
+      </FootLinks>
     </div>
   )
 }

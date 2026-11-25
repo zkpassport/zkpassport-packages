@@ -102,6 +102,10 @@ export function Primary({
   )
 }
 
+export function FootLinks({ children }: { children: ReactNode }) {
+  return <div className="flow-footlinks">{children}</div>
+}
+
 export function Secondary({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" className="flow-secondary" onClick={onClick}>

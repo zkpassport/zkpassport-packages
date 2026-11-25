@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { isMobileLike } from "@zkpassport/ui/hosted"
 
-import { Actions, Heading, Main, Primary, Secondary } from "../shared/controls"
+import { Actions, FootLinks, Heading, Main, Primary } from "../shared/controls"
 import { useOpenApp } from "../shared/use-open-app"
 
 /**
@@ -55,24 +55,21 @@ export function Waiting({
                   ? "Taking longer than usual. Check your phone."
                   : "Keep this window open"}
             </p>
-            {unconfirmed ? null : (
-              <button type="button" className="scan-reveal" onClick={onStartAgain}>
-                Start again
-              </button>
-            )}
           </div>
         </div>
       </Main>
-      {unconfirmed ? (
+      {unconfirmed && canOpenApp ? (
         <Actions>
-          {canOpenApp ? (
-            <Primary forward onClick={openApp}>
-              Open ZKPassport again
-            </Primary>
-          ) : null}
-          <Secondary onClick={onStartAgain}>Start again</Secondary>
+          <Primary forward onClick={openApp}>
+            Open ZKPassport again
+          </Primary>
         </Actions>
       ) : null}
+      <FootLinks>
+        <button type="button" className="scan-reveal" onClick={onStartAgain}>
+          Start again
+        </button>
+      </FootLinks>
     </div>
   )
 }

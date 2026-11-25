@@ -275,6 +275,17 @@ body.flow-page {
   padding: 16px 0 0;
 }
 
+.flow-footlinks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.flow-footlinks:empty {
+  display: none;
+}
+
 .flow-actions:empty {
   display: none;
 }
