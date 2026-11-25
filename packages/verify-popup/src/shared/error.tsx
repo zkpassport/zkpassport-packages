@@ -1,5 +1,7 @@
+import type { ReactNode } from "react"
+
 import { ICON_SEAL_CROSS } from "../shared/icons"
-import { Actions, Primary, Secondary } from "../shared/controls"
+import { Actions, FootLinks, Primary, Secondary } from "../shared/controls"
 
 type ErrorScreenProps = {
   title?: string
@@ -12,6 +14,7 @@ type ErrorScreenProps = {
   onStartOver?: () => void
   // A tab the user opened themselves can't be closed by the page, so it offers no Close
   closable?: boolean
+  links?: ReactNode
 }
 
 export function ErrorScreen({
@@ -22,6 +25,7 @@ export function ErrorScreen({
   retryLabel = "Try again",
   onStartOver,
   closable = true,
+  links,
 }: ErrorScreenProps) {
   // A page opened from a link has no window to go back to, and the browser will not close it
   const canClose = closable && !!window.opener
@@ -50,6 +54,7 @@ export function ErrorScreen({
         ) : null}
         {onStartOver ? <Secondary onClick={onStartOver}>Start over</Secondary> : null}
       </Actions>
+      {links ? <FootLinks>{links}</FootLinks> : null}
     </div>
   )
 }

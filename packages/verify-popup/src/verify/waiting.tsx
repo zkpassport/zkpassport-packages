@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { isMobileLike } from "@zkpassport/ui/hosted"
 
-import { Actions, FootLinks, Heading, Main, Primary } from "../shared/controls"
+import { FootLinks, Heading, Main } from "../shared/controls"
+import { ErrorScreen } from "../shared/error"
 import { useOpenApp } from "../shared/use-open-app"
 
 /**
@@ -41,29 +42,19 @@ export function Waiting({
 
   if (phone === "gone") {
     return (
-      <div className="flow-body">
-        <Main>
-          <Heading title="Your phone isn’t connected" />
-          <div className="flow-waiting">
-            <PhoneSwipe />
-            <p className="flow-hint" role="status">
-              ZKPassport was closed before it finished. Start again to continue.
-            </p>
-          </div>
-        </Main>
-        <Actions>
-          <Primary forward onClick={onStartAgain}>
-            Start again
-          </Primary>
-        </Actions>
-        {canOpenApp ? (
-          <FootLinks>
+      <ErrorScreen
+        title="Lost connection to your phone"
+        message="ZKPassport was closed or went offline before you finished. Start again to continue."
+        onRetry={onStartAgain}
+        retryLabel="Start again"
+        links={
+          canOpenApp ? (
             <button type="button" className="scan-reveal" onClick={openApp}>
               Open ZKPassport again
             </button>
-          </FootLinks>
-        ) : null}
-      </div>
+          ) : null
+        }
+      />
     )
   }
 
