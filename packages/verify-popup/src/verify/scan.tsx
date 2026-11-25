@@ -118,10 +118,8 @@ function ContinueInApp({
   // The App Clip link opens ZKPassport on an iPhone without installing first. Whether the clip can
   // read this ID is only known once it has the ID, so nothing here promises it can
   const appClip = isAppClipLane(requestUrl)
+  // The page iOS shows the App Clip banner and card on, so it is the app page from the start
   const [onAppClipPage] = useState(isOnAppClipPage)
-  if (onAppClipPage && requestUrl) {
-    return <TapAppClipBanner requestUrl={requestUrl} onRevealQr={onRevealQr} />
-  }
 
   const anotherPhone = (
     <button type="button" className="scan-reveal" onClick={onRevealQr}>
@@ -171,17 +169,26 @@ function ContinueInApp({
     )
   }
 
-  if (onAppPage || appNotFound) {
+  if (onAppClipPage || onAppPage || appNotFound) {
+    const clipPrompt = onAppClipPage && !appNotFound
     return (
       <div className="flow-body">
         <Main>
           <Heading title="Verify with the ZKPassport app" lock="Your ID never leaves your phone" />
           <div className="scan-store" role={appNotFound ? "status" : undefined}>
             <p className="flow-lede">
-              {appNotFound
-                ? "ZKPassport isn’t on this phone yet. Get it, then open it here."
-                : "Get the free app to continue."}
+              {appNotFound ? (
+                "ZKPassport isn’t on this phone yet. Get it, then open it here."
+              ) : clipPrompt ? (
+                <>
+                  Tap <strong>Open</strong> in the banner above, or <strong>Open App Clip</strong>{" "}
+                  on the card.
+                </>
+              ) : (
+                "Get the free app to continue."
+              )}
             </p>
+            {clipPrompt ? <p className="scan-sub">No banner? Get the ZKPassport app.</p> : null}
             <StoreBadges requestUrl={requestUrl} />
           </div>
           <div className="scan-hero">
@@ -192,7 +199,18 @@ function ContinueInApp({
             {escape}
           </div>
         </Main>
-        <FootLinks>{anotherPhone}</FootLinks>
+        <FootLinks>
+          {clipPrompt && requestUrl ? (
+            <button
+              type="button"
+              className="scan-reveal"
+              onClick={() => openAppClipPage(requestUrl)}
+            >
+              Show the banner again
+            </button>
+          ) : null}
+          {anotherPhone}
+        </FootLinks>
       </div>
     )
   }
@@ -224,38 +242,6 @@ function ContinueInApp({
           {escape}
         </div>
       </Main>
-    </div>
-  )
-}
-
-function TapAppClipBanner({
-  requestUrl,
-  onRevealQr,
-}: {
-  requestUrl: string
-  onRevealQr: () => void
-}) {
-  return (
-    <div className="flow-body">
-      <Main>
-        <Heading title="Continue in ZKPassport" lock="Your ID never leaves your phone" />
-        <p className="flow-lede">
-          Tap <strong>Open</strong> in the banner above, or <strong>Open App Clip</strong> on the
-          card.
-        </p>
-        <div className="r-actions">
-          <p className="r-note">No banner? Get the ZKPassport app.</p>
-          <StoreBadges requestUrl={requestUrl} />
-        </div>
-      </Main>
-      <FootLinks>
-        <button type="button" className="scan-reveal" onClick={() => openAppClipPage(requestUrl)}>
-          Show the banner again
-        </button>
-        <button type="button" className="scan-reveal" onClick={onRevealQr}>
-          Use another phone instead
-        </button>
-      </FootLinks>
     </div>
   )
 }
