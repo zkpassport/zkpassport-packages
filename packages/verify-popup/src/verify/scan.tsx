@@ -107,6 +107,7 @@ function ContinueInApp({
   const opening = openState === "opening"
   const handedOff = openState === "opened"
   const appNotFound = openState === "nothing-opened"
+  const firstScreen = !handedOff && !appNotFound
   // The App Clip link opens ZKPassport on an iPhone without installing first. Whether the clip can
   // read this ID is only known once it has the ID, so nothing here promises it can
   const appClip = isAppClipLane(requestUrl)
@@ -138,28 +139,22 @@ function ContinueInApp({
             be waiting.
           </p>
         ) : null}
-        {asks && !handedOff && !appNotFound ? asks : null}
+        {firstScreen ? asks : null}
         <div className="scan-hero" data-state={openState}>
+          {firstScreen ? (
+            <button type="button" className="scan-reveal" onClick={onRevealQr}>
+              Use another phone instead
+            </button>
+          ) : null}
           {handedOff ? null : requestUrl ? (
             <Primary busy={opening} forward onClick={openApp}>
-              {opening
-                ? "Opening…"
-                : appNotFound
-                  ? "Try opening again"
-                  : appClip
-                    ? "Continue"
-                    : "Open ZKPassport"}
+              {opening ? "Opening…" : appNotFound ? "Try opening again" : "Continue"}
             </Primary>
           ) : (
             <span className="flow-primary" aria-disabled="true">
               Preparing…
             </span>
           )}
-          {appClip && !handedOff && !appNotFound ? (
-            <p className="scan-sub">
-              Opens ZKPassport right away, usually with nothing to install.
-            </p>
-          ) : null}
           {inAppBrowser && requestUrl ? (
             <div className="scan-escape">
               <p className="scan-sub">
@@ -169,31 +164,33 @@ function ContinueInApp({
               <LinkActions url={requestUrl} />
             </div>
           ) : null}
-          {/* Always on screen for the full app, so a probe that wrongly concludes it is missing
-              costs the user nothing */}
-          {handedOff || (appClip && !appNotFound) ? null : (
+          {/* Still offered once the app seems to have opened, so a probe that wrongly concludes it
+              did costs the user nothing */}
+          {appNotFound || (handedOff && !appClip) ? (
             <div className="scan-install" role={appNotFound ? "status" : undefined}>
               {appNotFound ? null : <p className="scan-sub">Don&rsquo;t have the app yet?</p>}
               <StoreBadges requestUrl={requestUrl} />
             </div>
-          )}
+          ) : null}
         </div>
       </Main>
-      <FootLinks>
-        {handedOff ? (
-          <button type="button" className="scan-reveal" onClick={openApp}>
-            Open ZKPassport again
+      {firstScreen ? null : (
+        <FootLinks>
+          {handedOff ? (
+            <button type="button" className="scan-reveal" onClick={openApp}>
+              Open ZKPassport again
+            </button>
+          ) : null}
+          {handedOff && onStartAgain ? (
+            <button type="button" className="scan-reveal" onClick={onStartAgain}>
+              Having trouble? Start again
+            </button>
+          ) : null}
+          <button type="button" className="scan-reveal" onClick={onRevealQr}>
+            Use another phone instead
           </button>
-        ) : null}
-        {handedOff && onStartAgain ? (
-          <button type="button" className="scan-reveal" onClick={onStartAgain}>
-            Having trouble? Start again
-          </button>
-        ) : null}
-        <button type="button" className="scan-reveal" onClick={onRevealQr}>
-          Use another phone instead
-        </button>
-      </FootLinks>
+        </FootLinks>
+      )}
     </div>
   )
 }
