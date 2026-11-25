@@ -44,14 +44,12 @@ export function RequestPage() {
                 {appClipBanner ? (
                   <>
                     <p className="flow-lede">
-                      Tap <strong>Open</strong> in the ZKPassport banner at the top of this page, or{" "}
-                      <strong>Open App Clip</strong> if a card shows at the bottom of the screen.
-                      ZKPassport opens right away, usually with nothing to install.
+                      Tap <strong>Open</strong> in the banner above, or{" "}
+                      <strong>Open App Clip</strong> on the card.
                     </p>
                     <div className="r-actions">
                       <p className="r-note">
-                        No banner or card? Get the ZKPassport app instead. Your request will be
-                        waiting when you open it.
+                        No banner? Get the app. Your request will be waiting.
                       </p>
                       <StoreBadges requestUrl={requestUrl} />
                     </div>

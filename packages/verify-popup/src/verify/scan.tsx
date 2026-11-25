@@ -208,16 +208,13 @@ function TapAppClipBanner({
   return (
     <div className="flow-body">
       <Main>
-        <Heading title="Open the ZKPassport App Clip" lock="Your ID never leaves your phone" />
+        <Heading title="Continue in ZKPassport" lock="Your ID never leaves your phone" />
         <p className="flow-lede">
-          Tap <strong>Open</strong> in the ZKPassport banner at the top of this page, or{" "}
-          <strong>Open App Clip</strong> if a card shows at the bottom of the screen.
+          Tap <strong>Open</strong> in the banner above, or <strong>Open App Clip</strong> on the
+          card.
         </p>
         <div className="r-actions">
-          <p className="r-note">
-            No banner or card? Get the ZKPassport app instead. Your request will be waiting when you
-            open it.
-          </p>
+          <p className="r-note">No banner? Get the app. Your request will be waiting.</p>
           <StoreBadges requestUrl={requestUrl} />
         </div>
       </Main>
