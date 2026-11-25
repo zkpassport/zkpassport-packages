@@ -210,13 +210,20 @@ function TapAppClipBanner({
       <Main>
         <Heading title="Open the ZKPassport App Clip" lock="Your ID never leaves your phone" />
         <p className="flow-lede">
-          Tap <strong>Open App Clip</strong> on the card at the bottom of the screen. If you closed
-          it, tap <strong>Open</strong> in the ZKPassport banner at the top of this page.
+          Tap <strong>Open</strong> in the ZKPassport banner at the top of this page, or{" "}
+          <strong>Open App Clip</strong> if a card shows at the bottom of the screen.
         </p>
+        <div className="r-actions">
+          <p className="r-note">
+            No banner or card? Get the ZKPassport app instead. Your request will be waiting when you
+            open it.
+          </p>
+          <StoreBadges requestUrl={requestUrl} />
+        </div>
       </Main>
       <FootLinks>
         <button type="button" className="scan-reveal" onClick={() => openAppClipPage(requestUrl)}>
-          Don&rsquo;t see the banner? Open it another way
+          Show the banner again
         </button>
         <button type="button" className="scan-reveal" onClick={onRevealQr}>
           Use another phone instead
