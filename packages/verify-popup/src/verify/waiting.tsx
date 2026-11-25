@@ -71,7 +71,11 @@ export function Waiting({
       </Main>
       {unconfirmed ? (
         <Actions>
-          {canOpenApp ? <Primary onClick={openApp}>Open ZKPassport again</Primary> : null}
+          {canOpenApp ? (
+            <Primary forward onClick={openApp}>
+              Open ZKPassport again
+            </Primary>
+          ) : null}
           <Secondary onClick={onStartAgain}>Start again</Secondary>
         </Actions>
       ) : null}

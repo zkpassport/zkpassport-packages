@@ -994,27 +994,50 @@ a.flow-address[data-chip]:hover {
   gap: 8px;
   width: 100%;
   margin-top: 4px;
-  padding: 15px 18px;
+  padding: 14px 18px;
   border: 1px solid transparent;
-  background: var(--zkp-brand);
+  background: linear-gradient(180deg, #fbdca9 0%, #f3c47c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.3);
   color: #0a1746;
   /* The Verify with ZKPassport button's corner and type, so the two read as one
      control */
   border-radius: 8px;
   font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1.2;
   text-align: center;
   text-wrap: balance;
   cursor: pointer;
-  transition: filter 150ms ease;
+  transition:
+    filter 150ms ease,
+    transform 100ms ease;
 }
 .flow-primary:hover {
   filter: brightness(1.05);
 }
+.flow-primary:active:not(:disabled) {
+  transform: scale(0.98);
+  filter: brightness(0.97);
+}
+.flow-primary:focus-visible,
+.flow-secondary:focus-visible {
+  outline: 2px solid var(--zkp-brand);
+  outline-offset: 2px;
+}
+.flow-primary .flow-glyph[data-after] {
+  margin-left: 0;
+  opacity: 1;
+  transition: transform 150ms ease;
+}
+.flow-primary:hover:not(:disabled) .flow-glyph[data-after] {
+  transform: translateX(2px);
+}
 .flow-primary:disabled {
   background: var(--zkp-surface);
+  box-shadow: none;
   color: var(--zkp-muted);
   cursor: default;
   filter: none;
@@ -1025,7 +1048,7 @@ a.flow-address[data-chip]:hover {
   -webkit-appearance: none;
   -webkit-tap-highlight-color: transparent;
   width: 100%;
-  padding: 15px 18px;
+  padding: 14px 18px;
   border: 1px solid var(--zkp-border);
   background: none;
   color: var(--zkp-fg);
@@ -1036,12 +1059,17 @@ a.flow-address[data-chip]:hover {
   line-height: 1.2;
   text-align: center;
   cursor: pointer;
-  transition: background 150ms ease;
-  letter-spacing: 0.04em;
+  transition:
+    background 150ms ease,
+    transform 100ms ease;
+  letter-spacing: 0;
   margin-top: 4px;
 }
 .flow-secondary:hover {
   background: var(--zkp-surface);
+}
+.flow-secondary:active {
+  transform: scale(0.98);
 }
 
 /* ─── The QR ─────────────────────────────────────────────────────────────── */

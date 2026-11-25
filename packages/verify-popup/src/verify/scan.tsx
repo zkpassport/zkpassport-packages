@@ -134,7 +134,7 @@ function ContinueInApp({
               ) : null}
             </>
           ) : requestUrl ? (
-            <Primary busy={opening} onClick={openApp}>
+            <Primary busy={opening} forward onClick={openApp}>
               {opening
                 ? "Opening…"
                 : appNotFound

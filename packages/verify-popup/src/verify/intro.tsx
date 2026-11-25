@@ -2,7 +2,7 @@ import { describeQuery, type QueryDescriptionItem } from "@zkpassport/ui/hosted"
 import type { Query } from "@zkpassport/sdk"
 
 import { ICON_CHECK } from "../shared/icons"
-import { Heading, Main, Secondary } from "../shared/controls"
+import { Heading, Main, Primary, Secondary } from "../shared/controls"
 
 const SKELETON_ROWS = 2
 
@@ -38,9 +38,9 @@ export function Intro({
         </div>
 
         <div className="intro-chip">
-          <button type="button" className="flow-primary" disabled={!items} onClick={onContinue}>
+          <Primary forward disabled={!items} onClick={onContinue}>
             Continue
-          </button>
+          </Primary>
           {onChangeWallet ? (
             <Secondary onClick={onChangeWallet}>Use another wallet</Secondary>
           ) : null}

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import type { Address, Chain, Hex } from "viem"
 
-import { ICON_CHECK, ICON_EXTERNAL, ICON_LOCK, ICON_SPINNER } from "../shared/icons"
+import { ICON_ARROW, ICON_CHECK, ICON_EXTERNAL, ICON_LOCK, ICON_SPINNER } from "../shared/icons"
 
 // Sized in em, so every glyph matches the text it sits with
 function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: boolean }) {
@@ -82,17 +82,22 @@ export function Actions({ children }: { children: ReactNode }) {
 
 export function Primary({
   busy,
+  disabled,
+  forward,
   onClick,
   children,
 }: {
   busy?: boolean
+  disabled?: boolean
+  forward?: boolean
   onClick: () => void
   children: ReactNode
 }) {
   return (
-    <button type="button" className="flow-primary" disabled={busy} onClick={onClick}>
+    <button type="button" className="flow-primary" disabled={busy || disabled} onClick={onClick}>
       {busy ? <Glyph icon={ICON_SPINNER} spin /> : null}
       {children}
+      {forward && !busy ? <Glyph icon={ICON_ARROW} after /> : null}
     </button>
   )
 }
