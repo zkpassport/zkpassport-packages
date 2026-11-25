@@ -99,7 +99,7 @@ function ContinueInApp({
   const appClip = isAppClipLane(requestUrl)
 
   const title = handedOff
-    ? "Check your phone"
+    ? "Approve in ZKPassport"
     : appNotFound
       ? "Get the ZKPassport app"
       : appClip
@@ -111,9 +111,7 @@ function ContinueInApp({
       <Main>
         <Heading title={title} lock={handedOff ? undefined : "Your ID never leaves your phone"} />
         {handedOff ? (
-          <p className="flow-lede">
-            Slide to approve in ZKPassport. This page carries on by itself.
-          </p>
+          <p className="flow-lede">Slide to verify in the app. This page carries on by itself.</p>
         ) : null}
         {appNotFound ? (
           <p className="flow-lede">
