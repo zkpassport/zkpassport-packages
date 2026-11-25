@@ -39,7 +39,7 @@ export function Waiting({
   return (
     <div className="flow-body">
       <Main>
-        <Heading title={approving ? "Check your phone" : "Creating your proof"} />
+        <Heading title={approving ? "Check your phone" : "Verifying your ID"} />
         <div className="flow-waiting">
           {approving ? <PhoneSwipe /> : <PulsingDots />}
           <div className="flow-waiting-text">
