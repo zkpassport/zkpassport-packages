@@ -1,11 +1,17 @@
-import { useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { copyRequestForInstall } from "@zkpassport/ui/app-link"
 import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
 import { ICON_ZKP_MARK } from "../shared/icons"
 import { FootLinks, Heading, LockLine, Main, Primary } from "../shared/controls"
 import { CopyLink, LinkActions } from "../shared/link-actions"
-import { StoreBadges } from "../shared/store-badges"
-import { isOnAppClipPage, openAppClipPage, useOpenApp } from "../shared/use-open-app"
+import { StoreBadges, storeUrlFor } from "../shared/store-badges"
+import {
+  canOpenAppClip,
+  isOnAppClipPage,
+  openAppClipPage,
+  useOpenApp,
+} from "../shared/use-open-app"
 import type { RequestState } from "../request"
 import { isAppClipLane } from "./lane"
 
@@ -107,122 +113,148 @@ function ContinueInApp({
   const opening = openState === "opening"
   const handedOff = openState === "opened"
   const appNotFound = openState === "nothing-opened"
-  const firstScreen = !handedOff && !appNotFound
+  // Where no App Clip can open, Continue leads to a page about the app first, so a tap never
+  // fires the app link at a phone that may not have the app
+  const [onAppPage, setOnAppPage] = useState(false)
   // The App Clip link opens ZKPassport on an iPhone without installing first. Whether the clip can
   // read this ID is only known once it has the ID, so nothing here promises it can
   const appClip = isAppClipLane(requestUrl)
+  // The page iOS shows the App Clip banner and card on, so it is the app page from the start
   const [onAppClipPage] = useState(isOnAppClipPage)
-  if (onAppClipPage && requestUrl) {
-    return <TapAppClipBanner requestUrl={requestUrl} onRevealQr={onRevealQr} />
+  // A tap on Open ZKPassport that finds no app goes on to the store, with the request copied
+  // during the tap for the app to pick up after the install
+  const storeOnMiss = useRef(false)
+  useEffect(() => {
+    if (!appNotFound || !storeOnMiss.current) return
+    storeOnMiss.current = false
+    const storeUrl = storeUrlFor(requestUrl)
+    if (storeUrl) window.location.assign(storeUrl)
+  }, [appNotFound, requestUrl])
+  const openOrInstall = () => {
+    copyRequestForInstall(requestUrl)
+    storeOnMiss.current = true
+    openApp()
   }
 
-  const title = handedOff
-    ? "Approve in ZKPassport"
-    : appNotFound
-      ? "Get the ZKPassport app"
-      : asks
-        ? "Verify your identity privately"
-        : appClip
-          ? "Continue on this phone"
-          : "Continue in ZKPassport"
+  const anotherPhone = (
+    <button type="button" className="scan-reveal" onClick={onRevealQr}>
+      Use another phone instead
+    </button>
+  )
+  const escape =
+    inAppBrowser && requestUrl ? (
+      <div className="scan-escape">
+        <p className="scan-sub">
+          This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in your
+          browser instead.
+        </p>
+        <LinkActions url={requestUrl} />
+      </div>
+    ) : null
+
+  if (handedOff) {
+    return (
+      <div className="flow-body">
+        <Main>
+          <Heading title="Approve in ZKPassport" />
+          <p className="flow-lede">Slide to verify in the app. This page carries on by itself.</p>
+          {/* Still offered once the app seems to have opened, so a probe that wrongly concludes it
+              did costs the user nothing */}
+          {appClip ? null : (
+            <div className="scan-hero">
+              <div className="scan-install">
+                <p className="scan-sub">Don&rsquo;t have the app yet?</p>
+                <StoreBadges requestUrl={requestUrl} />
+              </div>
+            </div>
+          )}
+        </Main>
+        <FootLinks>
+          <button type="button" className="scan-reveal" onClick={openApp}>
+            Open ZKPassport again
+          </button>
+          {onStartAgain ? (
+            <button type="button" className="scan-reveal" onClick={onStartAgain}>
+              Having trouble? Start again
+            </button>
+          ) : null}
+          {anotherPhone}
+        </FootLinks>
+      </div>
+    )
+  }
+
+  if (onAppClipPage || onAppPage || appNotFound) {
+    const clipPrompt = onAppClipPage && !appNotFound
+    return (
+      <div className="flow-body">
+        <Main>
+          <Heading title="Verify with the ZKPassport app" lock="Your ID never leaves your phone" />
+          <div className="scan-store" role={appNotFound ? "status" : undefined}>
+            <p className="flow-lede">
+              {appNotFound ? (
+                "ZKPassport isn’t on this phone yet. Get it, then open it here."
+              ) : clipPrompt ? (
+                <>
+                  Tap <strong>Open</strong> in the banner above, or <strong>Open App Clip</strong>{" "}
+                  on the card.
+                </>
+              ) : (
+                "Get the free app to continue."
+              )}
+            </p>
+            {clipPrompt ? <p className="scan-sub">No banner? Get the ZKPassport app.</p> : null}
+            <StoreBadges requestUrl={requestUrl} />
+          </div>
+          <div className="scan-hero">
+            {clipPrompt && requestUrl ? (
+              <button
+                type="button"
+                className="scan-reveal"
+                onClick={() => openAppClipPage(requestUrl)}
+              >
+                Show the banner again
+              </button>
+            ) : null}
+            {anotherPhone}
+            <p className="scan-sub">Already have the app?</p>
+            <Primary busy={opening} forward onClick={openOrInstall}>
+              {opening ? "Opening…" : "Open ZKPassport"}
+            </Primary>
+            {escape}
+          </div>
+        </Main>
+      </div>
+    )
+  }
+
+  const onContinue = () => {
+    if (requestUrl && canOpenAppClip(requestUrl)) openApp()
+    else setOnAppPage(true)
+  }
 
   return (
     <div className="flow-body">
       <Main>
-        <Heading title={title} lock={handedOff ? undefined : "Your ID never leaves your phone"} />
-        {handedOff ? (
-          <p className="flow-lede">Slide to verify in the app. This page carries on by itself.</p>
-        ) : null}
-        {appNotFound ? (
-          <p className="flow-lede">
-            It isn&rsquo;t installed on this phone yet. Install it, then open it: your request will
-            be waiting.
-          </p>
-        ) : null}
-        {firstScreen ? asks : null}
-        <div className="scan-hero" data-state={openState}>
-          {firstScreen ? (
-            <button type="button" className="scan-reveal" onClick={onRevealQr}>
-              Use another phone instead
-            </button>
-          ) : null}
-          {handedOff ? null : requestUrl ? (
-            <Primary busy={opening} forward onClick={openApp}>
-              {opening ? "Opening…" : appNotFound ? "Try opening again" : "Continue"}
+        <Heading
+          title={asks ? "Verify your identity privately" : "Continue on this phone"}
+          lock="Your ID never leaves your phone"
+        />
+        {asks}
+        <div className="scan-hero">
+          {anotherPhone}
+          {requestUrl ? (
+            <Primary busy={opening} forward onClick={onContinue}>
+              {opening ? "Opening…" : "Continue"}
             </Primary>
           ) : (
             <span className="flow-primary" aria-disabled="true">
               Preparing…
             </span>
           )}
-          {inAppBrowser && requestUrl ? (
-            <div className="scan-escape">
-              <p className="scan-sub">
-                This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in
-                your browser instead.
-              </p>
-              <LinkActions url={requestUrl} />
-            </div>
-          ) : null}
-          {/* Still offered once the app seems to have opened, so a probe that wrongly concludes it
-              did costs the user nothing */}
-          {appNotFound || (handedOff && !appClip) ? (
-            <div className="scan-install" role={appNotFound ? "status" : undefined}>
-              {appNotFound ? null : <p className="scan-sub">Don&rsquo;t have the app yet?</p>}
-              <StoreBadges requestUrl={requestUrl} />
-            </div>
-          ) : null}
+          {escape}
         </div>
       </Main>
-      {firstScreen ? null : (
-        <FootLinks>
-          {handedOff ? (
-            <button type="button" className="scan-reveal" onClick={openApp}>
-              Open ZKPassport again
-            </button>
-          ) : null}
-          {handedOff && onStartAgain ? (
-            <button type="button" className="scan-reveal" onClick={onStartAgain}>
-              Having trouble? Start again
-            </button>
-          ) : null}
-          <button type="button" className="scan-reveal" onClick={onRevealQr}>
-            Use another phone instead
-          </button>
-        </FootLinks>
-      )}
-    </div>
-  )
-}
-
-function TapAppClipBanner({
-  requestUrl,
-  onRevealQr,
-}: {
-  requestUrl: string
-  onRevealQr: () => void
-}) {
-  return (
-    <div className="flow-body">
-      <Main>
-        <Heading title="Continue in ZKPassport" lock="Your ID never leaves your phone" />
-        <p className="flow-lede">
-          Tap <strong>Open</strong> in the banner above, or <strong>Open App Clip</strong> on the
-          card.
-        </p>
-        <div className="r-actions">
-          <p className="r-note">No banner? Get the app. Your request will be waiting.</p>
-          <StoreBadges requestUrl={requestUrl} />
-        </div>
-      </Main>
-      <FootLinks>
-        <button type="button" className="scan-reveal" onClick={() => openAppClipPage(requestUrl)}>
-          Show the banner again
-        </button>
-        <button type="button" className="scan-reveal" onClick={onRevealQr}>
-          Use another phone instead
-        </button>
-      </FootLinks>
     </div>
   )
 }

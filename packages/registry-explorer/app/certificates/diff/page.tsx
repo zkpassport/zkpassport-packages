@@ -22,8 +22,8 @@ import {
   PackagedCertificate,
   PackagedCertificatesFile,
   BRAINPOOL_CURVES_ABBR as BRAINPOOL_ABBR,
+  normaliseHash,
 } from "@zkpassport/utils"
-import { normalizeHash } from "@/lib/utils"
 import { getCertificateUrl } from "@/lib/certificate-url"
 import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
 import { useNetwork } from "@/components/NetworkProvider"
@@ -347,10 +347,10 @@ function CertificateDiffContent() {
   const chronoRoots = useMemo(() => [...historicalRoots].reverse(), [historicalRoots])
 
   const beforeIdx = chronoRoots.findIndex(
-    (r) => normalizeHash(r.root) === normalizeHash(beforeRoot || ""),
+    (r) => normaliseHash(r.root) === normaliseHash(beforeRoot || ""),
   )
   const afterIdx = chronoRoots.findIndex(
-    (r) => normalizeHash(r.root) === normalizeHash(afterRoot || ""),
+    (r) => normaliseHash(r.root) === normaliseHash(afterRoot || ""),
   )
 
   const canGoPrevious = beforeIdx > 0
@@ -438,10 +438,10 @@ function CertificateDiffContent() {
         ])
         // Normalise fingerprints
         for (const cert of beforeData.certificates) {
-          if (cert.fingerprint) cert.fingerprint = normalizeHash(cert.fingerprint)
+          if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
         }
         for (const cert of afterData.certificates) {
-          if (cert.fingerprint) cert.fingerprint = normalizeHash(cert.fingerprint)
+          if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
         }
 
         const beforeRootHash = beforeRoot.startsWith("http") ? beforeData.root : beforeRoot
