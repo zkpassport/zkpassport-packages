@@ -11,7 +11,9 @@ use zkpassport::app_attest::{
     EMPTY_REVOCATION_ROOT, GOOGLE_ECDSA_ROOT_KEY_HASH, GOOGLE_RSA_ROOT_KEY_HASH,
     IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
 };
-use zkpassport::commitments::{age_commitment, disclose_commitment, sanctions_commitment};
+use zkpassport::commitments::{
+    age_commitment, bind_commitment, disclose_commitment, sanctions_commitment,
+};
 use zkpassport::constants::{
     APP_ATTEST_ENV_PRODUCTION, DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT,
     FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, NULLIFIER_TYPE_SALTED, PI_PARAMS_START,
@@ -23,7 +25,7 @@ use zkpassport::fixtures::{
         AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT,
         AGE_FIXTURE_CIRCUIT_VERSION, AGE_FIXTURE_CURRENT_DATE, AGE_FIXTURE_VK_HASH,
     },
-    txe::age_fixture_blob_for_txe,
+    txe::{age_fixture_blob_for_txe, TXE_CHAIN_ID},
 };
 use zkpassport::version::circuit_version;
 use zkpassport_registry_contract::{
@@ -129,6 +131,30 @@ fn fixture_with(commitment: Field) -> [Field; 585] {
     for i in params_start..params_start + 2 {
         if blob[i] == age_commitment(18, 0) {
             blob[i] = commitment;
+        }
+    }
+    blob
+}
+
+// The age fixture with its bind commitment swapped for one that also covers `custom_data`, with or
+// without the fixture's address. TXE doesn't verify the recursion, so the swap is enough.
+fn fixture_bound_to<let N: u32>(account: Option<Field>, custom_data: str<N>) -> [Field; 585] {
+    let fixture_bind = bind_commitment(
+        Option::some(AGE_FIXTURE_BIND_ADDRESS),
+        TXE_CHAIN_ID,
+        Option::none(),
+    );
+    let bind = bind_commitment(
+        account,
+        TXE_CHAIN_ID,
+        Option::some(BoundedVec::from_array(custom_data.as_bytes())),
+    );
+
+    let mut blob = age_fixture_blob_for_txe();
+    let params_start = VK_FIELDS + PROOF_FIELDS + PI_PARAMS_START;
+    for i in params_start..params_start + 2 {
+        if blob[i] == fixture_bind {
+            blob[i] = bind;
         }
     }
     blob
@@ -353,6 +379,103 @@ unconstrained fn rejects_a_proof_bound_to_another_network() {
     );
 
     let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age(user));
+}
+
+#[test]
+unconstrained fn verifies_a_proof_bound_to_custom_data() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let blob = fixture_bound_to(Option::some(AGE_FIXTURE_BIND_ADDRESS), "order-42");
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(blob),
+        Option::none(),
+        Option::none(),
+    );
+
+    let verifier = VerifierTest::at(verifier);
+    assert(env.call_private(sender, verifier.verify_age_with_custom_data(user, "order-42")) != 0);
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_a_proof_bound_to_other_custom_data() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let blob = fixture_bound_to(Option::some(AGE_FIXTURE_BIND_ADDRESS), "order-42");
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(blob),
+        Option::none(),
+        Option::none(),
+    );
+
+    let verifier = VerifierTest::at(verifier);
+    let _ = env.call_private(sender, verifier.verify_age_with_custom_data(user, "order-43"));
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_a_proof_bound_without_the_custom_data_asked_for() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(age_fixture_blob_for_txe()),
+        Option::none(),
+        Option::none(),
+    );
+
+    let verifier = VerifierTest::at(verifier);
+    let _ = env.call_private(sender, verifier.verify_age_with_custom_data(user, "order-42"));
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_a_proof_bound_to_custom_data_the_query_does_not_ask_for() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let blob = fixture_bound_to(Option::some(AGE_FIXTURE_BIND_ADDRESS), "order-42");
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(blob),
+        Option::none(),
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age(user));
+}
+
+#[test]
+unconstrained fn verifies_a_proof_bound_to_custom_data_without_an_address() {
+    let (mut env, verifier) = setup([]);
+    let sender = env.create_light_account();
+    let blob = fixture_bound_to(Option::none(), "order-42");
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(blob),
+        Option::none(),
+        Option::none(),
+    );
+
+    let verifier = VerifierTest::at(verifier);
+    assert(env.call_private(sender, verifier.verify_age_with_custom_data_alone("order-42")) != 0);
 }
 
 #[test]

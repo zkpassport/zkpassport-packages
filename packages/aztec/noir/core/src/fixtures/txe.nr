@@ -11,8 +11,16 @@ pub global TXE_CHAIN_ID: Field = 1;
 
 /// AGE_FIXTURE_BLOB bound to AGE_FIXTURE_BIND_ADDRESS on TXE's network.
 pub fn age_fixture_blob_for_txe() -> [Field; 585] {
-    let fixture_bind = bind_commitment(AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BIND_CHAIN_ID);
-    let txe_bind = bind_commitment(AGE_FIXTURE_BIND_ADDRESS, TXE_CHAIN_ID);
+    let fixture_bind = bind_commitment(
+        Option::some(AGE_FIXTURE_BIND_ADDRESS),
+        AGE_FIXTURE_BIND_CHAIN_ID,
+        Option::none(),
+    );
+    let txe_bind = bind_commitment(
+        Option::some(AGE_FIXTURE_BIND_ADDRESS),
+        TXE_CHAIN_ID,
+        Option::none(),
+    );
 
     let mut blob = AGE_FIXTURE_BLOB;
     let mut swapped = false;
