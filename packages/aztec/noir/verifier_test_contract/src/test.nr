@@ -15,9 +15,11 @@ use zkpassport::commitments::{
     age_commitment, bind_commitment, disclose_commitment, sanctions_commitment,
 };
 use zkpassport::constants::{
-    APP_ATTEST_ENV_PRODUCTION, DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT,
-    FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, NULLIFIER_TYPE_SALTED, PI_PARAMS_START,
-    PROOF_CAPSULE_SLOT, PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+    APP_ATTEST_ENV_PRODUCTION, ATTESTED_ID_CAPSULE_SLOT, DISCLOSE_CAPSULE_SLOT,
+    FACE_MATCH_CAPSULE_SLOT, FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, NULLIFIER_TYPE_SALTED,
+    PI_PARAMS_START, PROOF_CAPSULE_SLOT, PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT,
+    VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+    VERIFICATION_METHOD_ICAO_CHIP, VK_FIELDS,
 };
 use zkpassport::face_match::FaceMatch;
 use zkpassport::fixtures::{
@@ -969,4 +971,264 @@ unconstrained fn rejects_a_face_match_other_than_the_proofs() {
         ios_face_match(FACE_MATCH_MODE_STRICT),
         Option::some(delivered),
     );
+}
+
+// The age fixture as a camera-read ID's proof of {age, bind}: the attested ID commitment `proven`
+// first among the param commitments, one more public input, and `method` as its verification
+// method. TXE doesn't verify the recursion, so the public inputs are all a test needs to change.
+fn attested_fixture(proven: Field, method: Field) -> [Field; 586] {
+    let blob = age_fixture_blob_for_txe();
+    let params_start = VK_FIELDS + PROOF_FIELDS + PI_PARAMS_START;
+    let mut attested = [0; 586];
+    for i in 0..params_start {
+        attested[i] = blob[i];
+    }
+    attested[params_start] = proven;
+    for i in params_start..585 {
+        attested[i + 1] = blob[i];
+    }
+    attested[FIXTURE_PUBLIC_INPUTS_END] = method;
+    attested
+}
+
+// Delivers a camera-read ID's proof capsule and, when some, its attested ID capsule
+unconstrained fn deliver_attested<let N: u32>(
+    env: &mut TestEnvironment,
+    verifier: AztecAddress,
+    sender: AztecAddress,
+    blob: [Field; N],
+    delivered: Option<FaceMatch>,
+) {
+    env.utility_context_at(verifier, |_| {
+        capsules::store(verifier, PROOF_CAPSULE_SLOT, blob, sender);
+        if delivered.is_some() {
+            let payload = face_match_payload(delivered.unwrap());
+            capsules::store(verifier, ATTESTED_ID_CAPSULE_SLOT, payload, sender);
+        }
+    });
+}
+
+// A camera-read ID's proof of age under `method`, committing `proven` and delivered with
+// `delivered`, verified for an app that accepts tier 2, with `revocation_roots` as (root, valid
+// from) in the attestation revocation registry
+unconstrained fn verify_attested_age_under<let N: u32>(
+    revocation_roots: [(Field, u64); N],
+    proven: FaceMatch,
+    method: Field,
+    delivered: Option<FaceMatch>,
+) -> [Field; 2] {
+    let (mut env, verifier) = setup_with_revocation_roots(revocation_roots);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    let blob = attested_fixture(proven.attested_id_commitment(), method);
+    deliver_attested(&mut env, verifier, sender, blob, delivered);
+
+    env.call_private(sender, VerifierTest::at(verifier).verify_attested_age(user))
+}
+
+unconstrained fn verify_attested_age(
+    proven: FaceMatch,
+    method: Field,
+    delivered: Option<FaceMatch>,
+) -> [Field; 2] {
+    verify_attested_age_under([], proven, method, delivered)
+}
+
+#[test]
+unconstrained fn verifies_an_id_read_by_the_ios_apps_camera() {
+    let attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+
+    let result = verify_attested_age(
+        attestation,
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+        Option::some(attestation),
+    );
+
+    assert_eq(result[0], AGE_FIXTURE_BLOB[FIXTURE_PUBLIC_INPUTS_END - 3]);
+    assert_eq(result[1], VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+}
+
+#[test]
+unconstrained fn verifies_an_id_read_by_the_android_apps_camera() {
+    let attestation = android_face_match();
+
+    let result = verify_attested_age(
+        attestation,
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+        Option::some(attestation),
+    );
+
+    assert_eq(result[1], VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID);
+}
+
+#[test]
+unconstrained fn verifies_an_android_attestation_under_the_registrys_revocation_root() {
+    let mut attestation = android_face_match();
+    attestation.root_key_leaf = GOOGLE_ECDSA_ROOT_KEY_HASH;
+    attestation.revocation_root = REVOCATION_ROOT;
+
+    let result = verify_attested_age_under(
+        [(REVOCATION_ROOT, AGE_FIXTURE_CURRENT_DATE - 100)],
+        attestation,
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+        Option::some(attestation),
+    );
+
+    assert_eq(result[1], VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID);
+}
+
+#[test(should_fail_with = "invalid attestation revocation root")]
+unconstrained fn rejects_an_android_attestation_under_a_revocation_root_the_registry_lacks() {
+    let mut attestation = android_face_match();
+    attestation.revocation_root = REVOCATION_ROOT;
+
+    let _ = verify_attested_age(
+        attestation,
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+        Option::some(attestation),
+    );
+}
+
+#[test(should_fail_with = "verification method not allowed")]
+unconstrained fn rejects_an_android_camera_read_for_an_app_that_allows_iphones_only() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let attestation = android_face_match();
+    let blob = attested_fixture(
+        attestation.attested_id_commitment(),
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+    );
+    deliver_attested(&mut env, verifier, sender, blob, Option::some(attestation));
+
+    let _ =
+        env.call_private(sender, VerifierTest::at(verifier).verify_attested_age_on_iphones(user));
+}
+
+#[test]
+unconstrained fn verifies_an_iphone_camera_read_for_an_app_that_allows_iphones_only() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+    let blob = attested_fixture(
+        attestation.attested_id_commitment(),
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+    );
+    deliver_attested(&mut env, verifier, sender, blob, Option::some(attestation));
+
+    let identifier =
+        env.call_private(sender, VerifierTest::at(verifier).verify_attested_age_on_iphones(user));
+
+    assert_eq(identifier, AGE_FIXTURE_BLOB[FIXTURE_PUBLIC_INPUTS_END - 3]);
+}
+
+#[test(should_fail_with = "Expected 586 but got 585")]
+unconstrained fn rejects_a_chip_read_where_a_camera_read_is_expected() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+    deliver_attested(
+        &mut env,
+        verifier,
+        sender,
+        age_fixture_blob_for_txe(),
+        Option::some(attestation),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_attested_age(user));
+}
+
+#[test(should_fail_with = "Expected 585 but got 586")]
+unconstrained fn rejects_a_camera_read_where_a_chip_read_is_expected() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+    let blob = attested_fixture(
+        attestation.attested_id_commitment(),
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+    );
+    deliver_attested(&mut env, verifier, sender, blob, Option::some(attestation));
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age_for_user(user));
+}
+
+#[test(should_fail_with = "not a device-attested proof")]
+unconstrained fn rejects_a_camera_read_stating_the_chip_method() {
+    let attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+
+    let _ = verify_attested_age(
+        attestation,
+        VERIFICATION_METHOD_ICAO_CHIP,
+        Option::some(attestation),
+    );
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_an_attestation_other_than_the_proofs() {
+    let _ = verify_attested_age(
+        ios_face_match(FACE_MATCH_MODE_STRICT),
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+        Option::some(android_face_match()),
+    );
+}
+
+// A face match commitment of the same parameters is not an attested ID entry
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_a_face_match_commitment_in_place_of_the_attested_id() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+    let blob = attested_fixture(
+        attestation.commitment(),
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+    );
+    deliver_attested(&mut env, verifier, sender, blob, Option::some(attestation));
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_attested_age(user));
+}
+
+#[test(should_fail_with = "attested ID app id not ZKPassport's iOS app")]
+unconstrained fn rejects_an_attestation_from_the_app_clip() {
+    let mut attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+    attestation.app_id_hash = IOS_APP_CLIP_APP_ID_HASH;
+
+    let _ = verify_attested_age(
+        attestation,
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+        Option::some(attestation),
+    );
+}
+
+#[test(should_fail_with = "missing attested ID capsule")]
+unconstrained fn rejects_a_missing_attested_id_capsule() {
+    let _ = verify_attested_age(
+        ios_face_match(FACE_MATCH_MODE_STRICT),
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+        Option::none(),
+    );
+}
+
+#[test]
+unconstrained fn meets_a_strict_face_match_with_the_attestation() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let attestation = ios_face_match(FACE_MATCH_MODE_STRICT);
+    let blob = attested_fixture(
+        attestation.attested_id_commitment(),
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+    );
+    deliver_attested(&mut env, verifier, sender, blob, Option::some(attestation));
+
+    let face_match = env.call_private(
+        sender,
+        VerifierTest::at(verifier).verify_attested_age_with_strict_face_match(user),
+    );
+
+    assert_eq(face_match, attestation.attested_id_commitment());
 }

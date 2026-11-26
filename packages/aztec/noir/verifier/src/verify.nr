@@ -6,17 +6,23 @@ use aztec::{
 };
 use poseidon::poseidon2::Poseidon2;
 use zkpassport::constants::{
-    CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT,
-    NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
-    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS,
-    SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+    ATTESTED_ID_CAPSULE_SLOT, CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT,
+    FACE_MATCH_MODE_STRICT, NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK,
+    NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT,
+    PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT, VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+    VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS, VERIFICATION_METHOD_ICAO_CHIP,
+    VERIFICATION_METHOD_UIDAI_AADHAAR, VERIFICATION_TIER_DEVICE_ATTESTED,
+    VERIFICATION_TIER_GOVERNMENT_SIGNED, VK_FIELDS,
 };
 use zkpassport::disclosed_data::{
     disclosed_birthdate, disclosed_document_number, disclosed_document_type, disclosed_expiry_date,
     disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
 };
-use zkpassport::face_match::{assert_face_match_policy, FaceMatch, parse_face_match_payload};
-use zkpassport::verify::verify_outer_proof_core;
+use zkpassport::face_match::{
+    assert_attested_id_policy, assert_face_match_policy, FaceMatch, parse_face_match_payload,
+};
+use zkpassport::parse::PublicInputs;
+use zkpassport::verify::{verification_tier, verify_outer_proof_core};
 use zkpassport::version::{assert_circuit_version_supported, MIN_SUPPORTED_CIRCUIT_VERSION};
 use zkpassport_registry_contract::{
     local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS, ZKPassportRegistry,
@@ -34,6 +40,9 @@ pub struct ServiceConfig {
     pub unique_identifier_type: u8, // the real NULLIFIER_TYPE_* the proof must carry
     pub validity_period: u64, // max proof age in seconds
     pub dev_mode: bool,
+    // The verification tiers (1, 2) and methods (100, 101, 200, 201) accepted, as the L1
+    // PolicyEvaluator's allowedVerificationMethods: empty accepts tier 1
+    pub verification_methods: BoundedVec<Field, 6>,
 }
 
 impl ServiceConfig {
@@ -89,6 +98,7 @@ impl ServiceConfig {
             unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
             validity_period: DEFAULT_VALIDITY_PERIOD,
             dev_mode: false,
+            verification_methods: BoundedVec::new(),
         }
     }
 
@@ -129,6 +139,46 @@ impl ServiceConfig {
         self.dev_mode = true;
         self
     }
+
+    /// Accept every verification method of `tier`: `VERIFICATION_TIER_GOVERNMENT_SIGNED` (1), an
+    /// ID its issuer signed, or `VERIFICATION_TIER_DEVICE_ATTESTED` (2), an ID read by the camera
+    /// of ZKPassport's app, which `verify_device_attested_proof` verifies. Without any
+    /// `allow_tier` or `allow_method`, a config accepts tier 1 only.
+    pub fn allow_tier(mut self, tier: Field) -> Self {
+        assert(
+            (tier == VERIFICATION_TIER_GOVERNMENT_SIGNED)
+                | (tier == VERIFICATION_TIER_DEVICE_ATTESTED),
+            "verification tier must be 1 or 2",
+        );
+        self.verification_methods.push(tier);
+        self
+    }
+
+    /// Accept proofs made under `method`: `VERIFICATION_METHOD_ICAO_CHIP` (100),
+    /// `VERIFICATION_METHOD_UIDAI_AADHAAR` (101), `VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS` (200)
+    /// or `VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID` (201).
+    pub fn allow_method(mut self, method: Field) -> Self {
+        assert(
+            (method == VERIFICATION_METHOD_ICAO_CHIP)
+                | (method == VERIFICATION_METHOD_UIDAI_AADHAAR)
+                | (method == VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS)
+                | (method == VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID),
+            "verification method must be 100, 101, 200 or 201",
+        );
+        self.verification_methods.push(method);
+        self
+    }
+
+    /// Whether the config accepts a proof made under `method`, as the L1 `VerificationMethods`
+    /// library's `isAllowed` decides it for a method in tier 1 or 2. No other method is accepted.
+    pub fn accepts_method(self, method: Field) -> bool {
+        let tier = verification_tier(method);
+        if self.verification_methods.len() == 0 {
+            tier == VERIFICATION_TIER_GOVERNMENT_SIGNED
+        } else {
+            (tier != 0) & self.verification_methods.any(|entry| (entry == method) | (entry == tier))
+        }
+    }
 }
 
 /// The payload of a disclose subproof: which of the 90 MRZ bytes are disclosed, and the bytes.
@@ -140,6 +190,10 @@ pub struct Disclosure {
 pub struct VerifiedProof {
     pub unique_identifier: Field,
     pub current_date: u64,
+    pub verification_method: Field, // how the ID's data was verified, VERIFICATION_METHOD_*
+    // The device attestation of a camera-read ID, some exactly for a proof of
+    // verify_device_attested_proof
+    pub attestation: Option<FaceMatch>,
     pub disclosure: Option<Disclosure>, // some exactly when the query discloses a field
     pub sanctions_root: Option<Field>, // some exactly when the query asks for sanctions
     pub face_match: Option<FaceMatch>, // some exactly when the query asks for a face match
@@ -253,7 +307,8 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
     }
 }
 
-/// Verify a zkPassport outer proof end-to-end, against ZKPassport's registry on this network.
+/// Verify a zkPassport outer proof of an ID its issuer signed (tier 1) end-to-end, against
+/// ZKPassport's registry on this network.
 ///
 /// `capsule_scope` is the PXE account scope the proof capsule was delivered under. Consider the
 /// transaction sender (`msg_sender`) is not necessarily the subject of the proof. It only
@@ -265,15 +320,17 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 ///
 /// The proof capsule is `vk ‖ proof ‖ public inputs (K + 6) ‖ circuit version`: an outer_count_K
 /// proof of circuits 0.23.x, and the release it was made with, packed as `circuit_version` does.
+/// The proof's verification method must be the chip (100), and `config` must accept it, which
+/// a config does unless it lists only other methods.
 ///
 /// In TXE and on a local network this is the local network registry, see
 /// `zkpassport_registry_contract::local_network_registry`. Use
 /// `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
-pub fn verify_zkpassport_proof<let K: u32, let D: u32, let B: u32>(
+pub fn verify_zkpassport_proof<let K: u32, let D: u32, let B: u32, let F: u32>(
     context: &mut PrivateContext,
     capsule_scope: AztecAddress,
     config: ServiceConfig,
-    query: Query<K, D, B>,
+    query: Query<K, D, B, F>,
 ) -> VerifiedProof {
     let registry = default_registry(context.chain_id(), context.version());
     verify_zkpassport_proof_with_registry(context, registry, capsule_scope, config, query)
@@ -282,12 +339,12 @@ pub fn verify_zkpassport_proof<let K: u32, let D: u32, let B: u32>(
 /// `verify_zkpassport_proof` for a proof bound to `user`. Use it whenever the proof grants
 /// something to `user`: a proof bound to no one can be submitted by anyone who sees it. A query
 /// that also binds custom data binds both itself and goes to `verify_zkpassport_proof`.
-pub fn verify_zkpassport_proof_for_user<let K: u32, let D: u32>(
+pub fn verify_zkpassport_proof_for_user<let K: u32, let D: u32, let F: u32>(
     context: &mut PrivateContext,
     capsule_scope: AztecAddress,
     user: AztecAddress,
     config: ServiceConfig,
-    query: Query<K, D, 0>,
+    query: Query<K, D, 0, F>,
 ) -> VerifiedProof {
     verify_zkpassport_proof(
         context,
@@ -301,76 +358,15 @@ pub fn verify_zkpassport_proof_for_user<let K: u32, let D: u32>(
 ///
 /// For a network without a ZKPassport registry, such as a local network or TXE tests, or an app
 /// that trusts a registry of its own.
-pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32>(
+pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32, let F: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
     capsule_scope: AztecAddress,
     config: ServiceConfig,
-    query: Query<K, D, B>,
+    query: Query<K, D, B, F>,
 ) -> VerifiedProof {
-    // Capsule load is unconstrained oracle data, everything downstream constrains it (as it must).
-    // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/
-    // registry checks below constrain every field derived from it.
-    let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + K + 6 + 1]> =
-        unsafe { capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, capsule_scope) };
-
-    assert(blob.is_some(), "missing zkpassport proof capsule");
-
-    let blob = blob.unwrap();
-
-    let mut vk = [0; VK_FIELDS];
-    for i in 0..VK_FIELDS {
-        vk[i] = blob[i];
-    }
-
-    let mut proof = [0; PROOF_FIELDS];
-    for i in 0..PROOF_FIELDS {
-        proof[i] = blob[VK_FIELDS + i];
-    }
-
-    let mut public_inputs = [0; K + 6];
-    for i in 0..K + 6 {
-        public_inputs[i] = blob[VK_FIELDS + PROOF_FIELDS + i];
-    }
-
-    // The registry below only accepts the proof's vk under the release that built it, which
-    // authenticates this value.
-    let version = blob[VK_FIELDS + PROOF_FIELDS + K + 6];
-    assert_circuit_version_supported(version, config.min_version);
-
-    // The disclose payload, the sanctions root and the face match are loaded once, here: a second
-    // load is a separate oracle call the sender's PXE can answer differently, so only these copies
-    // are bound to the proof.
-    let disclosure = if D == 1 {
-        // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
-        // every element, and the query's disclose commitment binds the result to the proof.
-        let payload: Option<[Field; 180]> =
-            unsafe { capsules::load(context.this_address(), DISCLOSE_CAPSULE_SLOT, capsule_scope) };
-
-        assert(payload.is_some(), "missing disclose capsule");
-        let disclosure = parse_disclose_payload(payload.unwrap());
-        query.assert_disclosed(disclosure);
-        Option::some(disclosure)
-    } else {
-        Option::none()
-    };
-
-    let sanctions_root = if query.sanctions_requested() {
-        // Safety: the loaded root is untrusted input; the query's sanctions commitment binds it
-        // to the proof, and the registry checks it below.
-        let root: Option<Field> = unsafe {
-            capsules::load(
-                context.this_address(),
-                SANCTIONS_CAPSULE_SLOT,
-                capsule_scope,
-            )
-        };
-
-        assert(root.is_some(), "missing sanctions capsule");
-        root
-    } else {
-        Option::none()
-    };
+    let capsule: ProofCapsule<K + 6> = load_proof_capsule(context, capsule_scope, config);
+    let (disclosure, sanctions_root) = load_payloads(context, capsule_scope, query);
 
     let face_match = if query.face_match_mode().is_some() {
         // Safety: the loaded payload is untrusted input; parse_face_match_payload range-checks it,
@@ -393,10 +389,10 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32>
     };
 
     // Stateless core: recursion, domain and scope, nullifier policy, multiset commitment coverage.
-    let out = verify_outer_proof_core::<K>(
-        vk,
-        proof,
-        public_inputs,
+    let out = verify_outer_proof_core::<K - 3>(
+        capsule.vk,
+        capsule.proof,
+        capsule.public_inputs,
         config.domain,
         config.scope,
         config.dev_mode,
@@ -404,6 +400,269 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32>
     );
     let parsed = out.parsed;
 
+    // Other tier 1 methods, such as Aadhaar, come from other outer circuits
+    assert(
+        parsed.verification_method == VERIFICATION_METHOD_ICAO_CHIP,
+        "unsupported verification method",
+    );
+    assert(config.accepts_method(parsed.verification_method), "verification method not allowed");
+
+    assert_proof_valid_now(
+        context,
+        registry,
+        config,
+        capsule.version,
+        out.vk_hash,
+        parsed,
+        sanctions_root,
+        face_match,
+    );
+
+    VerifiedProof {
+        unique_identifier: parsed.scoped_nullifier,
+        current_date: parsed.current_date,
+        verification_method: parsed.verification_method,
+        attestation: Option::none(),
+        disclosure,
+        sanctions_root,
+        face_match,
+    }
+}
+
+/// Verify a zkPassport outer proof of an ID read by the camera of ZKPassport's app and attested by
+/// the device (tier 2) end-to-end, against ZKPassport's registry on this network. `config` must
+/// accept the proof's method: `allow_tier(VERIFICATION_TIER_DEVICE_ATTESTED)` accepts both
+/// platforms, `allow_method(VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS)` iPhones only. With a config
+/// fixed at compile time that accepts neither, such as the default, no proof can pass, and bb
+/// refuses the contract function as an unsatisfiable circuit.
+///
+/// The proof capsule is `vk ‖ proof ‖ public inputs (K + 7 - F) ‖ circuit version`: the
+/// outer_attested_id_count_(K - 2 - F) proof answering the same request as an outer_count_K proof
+/// would. The attestation stands in for the three chip proofs, and for the face match proof: it
+/// covers a strict face match, so a query's `strict_face_match()` is met by it and `face_match()`
+/// (regular) is refused, as on L1.
+///
+/// The device attestation arrives in the attested ID capsule (`ATTESTED_ID_CAPSULE_SLOT`), its six
+/// parameters as in the face match capsule. The proof commits it first; the library checks it as
+/// the L1 verifier does, and an Android attestation's revocation root against the registry.
+///
+/// A passport read by camera has another unique identifier than the same passport read by chip, so
+/// a contract that accepts both tiers sees a passport once per tier.
+pub fn verify_device_attested_proof<let K: u32, let D: u32, let B: u32, let F: u32>(
+    context: &mut PrivateContext,
+    capsule_scope: AztecAddress,
+    config: ServiceConfig,
+    query: Query<K, D, B, F>,
+) -> VerifiedProof {
+    let registry = default_registry(context.chain_id(), context.version());
+    verify_device_attested_proof_with_registry(context, registry, capsule_scope, config, query)
+}
+
+/// `verify_device_attested_proof` for a proof bound to `user`, as
+/// `verify_zkpassport_proof_for_user` is for tier 1.
+pub fn verify_device_attested_proof_for_user<let K: u32, let D: u32, let F: u32>(
+    context: &mut PrivateContext,
+    capsule_scope: AztecAddress,
+    user: AztecAddress,
+    config: ServiceConfig,
+    query: Query<K, D, 0, F>,
+) -> VerifiedProof {
+    verify_device_attested_proof(
+        context,
+        capsule_scope,
+        config,
+        query.bind_user_address(user),
+    )
+}
+
+/// `verify_device_attested_proof` against the registry at `registry`.
+pub fn verify_device_attested_proof_with_registry<let K: u32, let D: u32, let B: u32, let F: u32>(
+    context: &mut PrivateContext,
+    registry: AztecAddress,
+    capsule_scope: AztecAddress,
+    config: ServiceConfig,
+    query: Query<K, D, B, F>,
+) -> VerifiedProof {
+    // The query is fixed when the contract compiles, so a regular face match fails compilation
+    // rather than every call
+    if query.face_match_mode().is_some() {
+        std::static_assert(
+            query.face_match_mode().unwrap() == FACE_MATCH_MODE_STRICT,
+            "a device-attested ID comes with a strict face match, not a regular one",
+        );
+    }
+
+    let capsule: ProofCapsule<K - 2 - F + 9> = load_proof_capsule(context, capsule_scope, config);
+    let (disclosure, sanctions_root) = load_payloads(context, capsule_scope, query);
+
+    // Safety: the loaded payload is untrusted input; parse_face_match_payload range-checks it, the
+    // policy below checks it the way the L1 verifier does, and the proof's first param commitment
+    // binds it.
+    let payload: Option<[Field; 6]> = unsafe {
+        capsules::load(
+            context.this_address(),
+            ATTESTED_ID_CAPSULE_SLOT,
+            capsule_scope,
+        )
+    };
+    assert(payload.is_some(), "missing attested ID capsule");
+    let attestation = parse_face_match_payload(payload.unwrap());
+
+    // The attested ID entry, then what the query asks for, but for the face match it stands for
+    let asked = query.commitments_of(disclosure, sanctions_root, Option::none(), context.version());
+    assert(asked.len() == K - 3 - F, "wrong number of expected commitments");
+    let mut expected = [0; K - 2 - F];
+    expected[0] = attestation.attested_id_commitment();
+    for i in 0..K - 3 - F {
+        expected[i + 1] = asked.get_unchecked(i);
+    }
+
+    let out = verify_outer_proof_core::<K - 2 - F>(
+        capsule.vk,
+        capsule.proof,
+        capsule.public_inputs,
+        config.domain,
+        config.scope,
+        config.dev_mode,
+        expected,
+    );
+    let parsed = out.parsed;
+
+    assert(
+        verification_tier(parsed.verification_method) == VERIFICATION_TIER_DEVICE_ATTESTED,
+        "not a device-attested proof",
+    );
+    assert(config.accepts_method(parsed.verification_method), "verification method not allowed");
+    assert_attested_id_policy(attestation, parsed.verification_method);
+
+    assert_proof_valid_now(
+        context,
+        registry,
+        config,
+        capsule.version,
+        out.vk_hash,
+        parsed,
+        sanctions_root,
+        Option::some(attestation),
+    );
+
+    VerifiedProof {
+        unique_identifier: parsed.scoped_nullifier,
+        current_date: parsed.current_date,
+        verification_method: parsed.verification_method,
+        attestation: Option::some(attestation),
+        disclosure,
+        sanctions_root,
+        face_match: if F == 1 {
+            Option::some(attestation)
+        } else {
+            Option::none()
+        },
+    }
+}
+
+// The proof capsule, `vk ‖ proof ‖ public inputs (N) ‖ circuit version`, split
+struct ProofCapsule<let N: u32> {
+    vk: [Field; VK_FIELDS],
+    proof: [Field; PROOF_FIELDS],
+    public_inputs: [Field; N],
+    version: Field,
+}
+
+// Loads the proof capsule and checks its circuits release against `config`
+fn load_proof_capsule<let N: u32>(
+    context: &mut PrivateContext,
+    capsule_scope: AztecAddress,
+    config: ServiceConfig,
+) -> ProofCapsule<N> {
+    // Capsule load is unconstrained oracle data, everything downstream constrains it (as it must).
+    // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/
+    // registry checks constrain every field derived from it.
+    let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + N + 1]> =
+        unsafe { capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, capsule_scope) };
+
+    assert(blob.is_some(), "missing zkpassport proof capsule");
+
+    let blob = blob.unwrap();
+
+    let mut vk = [0; VK_FIELDS];
+    for i in 0..VK_FIELDS {
+        vk[i] = blob[i];
+    }
+
+    let mut proof = [0; PROOF_FIELDS];
+    for i in 0..PROOF_FIELDS {
+        proof[i] = blob[VK_FIELDS + i];
+    }
+
+    let mut public_inputs = [0; N];
+    for i in 0..N {
+        public_inputs[i] = blob[VK_FIELDS + PROOF_FIELDS + i];
+    }
+
+    // The registry only accepts the proof's vk under the release that built it, which
+    // authenticates this value.
+    let version = blob[VK_FIELDS + PROOF_FIELDS + N];
+    assert_circuit_version_supported(version, config.min_version);
+
+    ProofCapsule { vk, proof, public_inputs, version }
+}
+
+// The disclose payload and the sanctions root, when the query asks for them. They are loaded once,
+// here: a second load is a separate oracle call the sender's PXE can answer differently, so only
+// these copies are bound to the proof.
+fn load_payloads<let K: u32, let D: u32, let B: u32, let F: u32>(
+    context: &mut PrivateContext,
+    capsule_scope: AztecAddress,
+    query: Query<K, D, B, F>,
+) -> (Option<Disclosure>, Option<Field>) {
+    let disclosure = if D == 1 {
+        // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
+        // every element, and the query's disclose commitment binds the result to the proof.
+        let payload: Option<[Field; 180]> =
+            unsafe { capsules::load(context.this_address(), DISCLOSE_CAPSULE_SLOT, capsule_scope) };
+
+        assert(payload.is_some(), "missing disclose capsule");
+        let disclosure = parse_disclose_payload(payload.unwrap());
+        query.assert_disclosed(disclosure);
+        Option::some(disclosure)
+    } else {
+        Option::none()
+    };
+
+    let sanctions_root = if query.sanctions_requested() {
+        // Safety: the loaded root is untrusted input; the query's sanctions commitment binds it
+        // to the proof, and the registry checks it.
+        let root: Option<Field> = unsafe {
+            capsules::load(
+                context.this_address(),
+                SANCTIONS_CAPSULE_SLOT,
+                capsule_scope,
+            )
+        };
+
+        assert(root.is_some(), "missing sanctions capsule");
+        root
+    } else {
+        Option::none()
+    };
+
+    (disclosure, sanctions_root)
+}
+
+// The checks both tiers share after the proof itself: the service policy, freshness, and the
+// registry's view of the proof's roots, vk and OPRF key, its sanctions root and, for an Android
+// device attestation, its revocation root
+fn assert_proof_valid_now<let P: u32>(
+    context: &mut PrivateContext,
+    registry: AztecAddress,
+    config: ServiceConfig,
+    version: Field,
+    vk_hash: Field,
+    parsed: PublicInputs<P>,
+    sanctions_root: Option<Field>,
+    attestation: Option<FaceMatch>,
+) {
     assert_service_policy(config, parsed.nullifier_type, parsed.scoped_nullifier);
 
     // Freshness vs the anchor-block timestamp
@@ -416,7 +675,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32>
     registry
         .assert_proof_valid(
             version,
-            out.vk_hash,
+            vk_hash,
             parsed.certificate_registry_root,
             parsed.circuit_registry_root,
             parsed.current_date,
@@ -429,22 +688,14 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32>
             context,
         );
     }
-    if face_match.is_some() {
-        let face_match = face_match.unwrap();
+    if attestation.is_some() {
+        let attestation = attestation.unwrap();
         // As on L1, when the transaction lands rather than at the proof's date
-        if face_match.is_android() {
-            registry.assert_attestation_revocation_root_accepted(face_match.revocation_root).view(
+        if attestation.is_android() {
+            registry.assert_attestation_revocation_root_accepted(attestation.revocation_root).view(
                 context,
             );
         }
-    }
-
-    VerifiedProof {
-        unique_identifier: parsed.scoped_nullifier,
-        current_date: parsed.current_date,
-        disclosure,
-        sanctions_root,
-        face_match,
     }
 }
 
@@ -549,6 +800,7 @@ mod test {
             unique_identifier_type,
             validity_period: 86400,
             dev_mode: false,
+            verification_methods: BoundedVec::new(),
         }
     }
 
@@ -556,10 +808,55 @@ mod test {
         VerifiedProof {
             unique_identifier: 1,
             current_date: 0,
+            verification_method: 100,
+            attestation: Option::none(),
             disclosure,
             sanctions_root: Option::none(),
             face_match: Option::none(),
         }
+    }
+
+    #[test]
+    fn accepts_tier_1_by_default() {
+        let config = ServiceConfig::new("example.com");
+        assert(config.accepts_method(100));
+        assert(config.accepts_method(101));
+        assert(!config.accepts_method(200));
+        assert(!config.accepts_method(201));
+    }
+
+    // As on L1, a listed tier or method replaces the default: tier 2 alone no longer accepts tier 1
+    #[test]
+    fn accepts_the_listed_tiers_and_methods_only() {
+        let tier_2 = ServiceConfig::new("example.com").allow_tier(2);
+        assert(tier_2.accepts_method(200) & tier_2.accepts_method(201));
+        assert(!tier_2.accepts_method(100));
+
+        let both = ServiceConfig::new("example.com").allow_tier(1).allow_tier(2);
+        assert(both.accepts_method(100) & both.accepts_method(200));
+
+        let iphones = ServiceConfig::new("example.com").allow_method(200);
+        assert(iphones.accepts_method(200));
+        assert(!iphones.accepts_method(201) & !iphones.accepts_method(100));
+    }
+
+    #[test]
+    fn accepts_no_method_outside_the_tiers() {
+        let config = ServiceConfig::new("example.com").allow_tier(1).allow_tier(2);
+        assert(!config.accepts_method(0));
+        assert(!config.accepts_method(1));
+        assert(!config.accepts_method(300));
+    }
+
+    #[test(should_fail_with = "verification tier must be 1 or 2")]
+    fn rejects_an_unknown_tier() {
+        let _ = ServiceConfig::new("example.com").allow_tier(3);
+    }
+
+    // JPKI (102) and mDoc (103) have no circuits yet
+    #[test(should_fail_with = "verification method must be 100, 101, 200 or 201")]
+    fn rejects_a_method_no_circuit_proves() {
+        let _ = ServiceConfig::new("example.com").allow_method(102);
     }
 
     #[test]

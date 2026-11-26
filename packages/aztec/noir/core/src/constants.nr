@@ -3,7 +3,8 @@ pub global VK_FIELDS: u32 = 115;
 pub global PROOF_FIELDS: u32 = 458;
 
 // Public-input layout of a circuits 0.23.x outer proof — mirrors zkpassport-packages
-// Constants.sol / lib/Types.sol. For outer_count_K: total length = K + 6, param commitments = K - 3.
+// Constants.sol / lib/Types.sol. For P param commitments: total length = P + 9. An outer_count_K
+// proof (a chip read) carries K - 3, an outer_attested_id_count_N proof (a camera read) N.
 pub(crate) global PI_CERT_ROOT: u32 = 0;
 pub(crate) global PI_CIRCUIT_ROOT: u32 = 1;
 pub(crate) global PI_CURRENT_DATE: u32 = 2;
@@ -13,9 +14,19 @@ pub global PI_PARAMS_START: u32 = 5;
 // Tail (from the end): [len-4] nullifier_type, [len-3] scoped_nullifier, [len-2] oprf_pk_hash,
 // [len-1] verification_method
 
-// How the ID's data was verified, the outer proof's last public input: the eMRTD chip, signed by
-// the issuing country. The only method this library accepts: L1 checks more for the others.
+// How the ID's data was verified, the outer proof's last public input, numbered as the L1
+// verifier's lib/VerificationMethods.sol numbers them. Tier 1 (100-199): the issuer signed the
+// data; tier 2 (200-299): ZKPassport's app attested a camera read of it.
 pub global VERIFICATION_METHOD_ICAO_CHIP: Field = 100;
+pub global VERIFICATION_METHOD_UIDAI_AADHAAR: Field = 101;
+pub global VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS: Field = 200;
+pub global VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID: Field = 201;
+pub global VERIFICATION_TIER_GOVERNMENT_SIGNED: Field = 1;
+pub global VERIFICATION_TIER_DEVICE_ATTESTED: Field = 2;
+
+// The proof type of an attested ID entry, as circuits 0.23.0's utils lib numbers it. The circuits
+// tag the commitment libs are pinned to predates it.
+pub global PROOF_TYPE_ATTESTED_ID: u8 = 11;
 
 // NullifierType — mirrors lib/Types.sol
 pub global NULLIFIER_TYPE_NON_SALTED: u8 = 0;
@@ -35,6 +46,7 @@ pub global PROOF_CAPSULE_SLOT: Field = 1;
 pub global DISCLOSE_CAPSULE_SLOT: Field = 2;
 pub global SANCTIONS_CAPSULE_SLOT: Field = 3;
 pub global FACE_MATCH_CAPSULE_SLOT: Field = 4;
+pub global ATTESTED_ID_CAPSULE_SLOT: Field = 5;
 
 // Freshness: device clock may run ahead of the (past) anchor-block timestamp
 pub global CURRENT_DATE_MAX_SKEW: u64 = 3600;

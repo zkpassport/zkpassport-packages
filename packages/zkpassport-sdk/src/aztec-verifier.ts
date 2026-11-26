@@ -1,10 +1,12 @@
 import {
+  AZTEC_ATTESTED_ID_CAPSULE_SLOT,
   AZTEC_DISCLOSE_CAPSULE_SLOT,
   AZTEC_FACE_MATCH_CAPSULE_SLOT,
   AZTEC_PROOF_CAPSULE_SLOT,
   AZTEC_SANCTIONS_CAPSULE_SLOT,
   AztecCapsule,
   AztecVerifierParameters,
+  AttestedIdCommittedInputs,
   Binary,
   BindCommittedInputs,
   DiscloseCommittedInputs,
@@ -28,10 +30,13 @@ export type AztecNetwork = "aztec" | "aztec_testnet"
 
 export class AztecVerifier {
   /**
-   * The capsules an Aztec contract's `verify_zkpassport_proof` reads for an `outer_count_N` proof
-   * of circuits 0.23.x: the proof capsule, then the disclose, sanctions and face match capsules of
-   * the committed inputs the proof carries. The outer circuit's vk comes from `registryClient`,
-   * checked against the circuit manifest of the proof's version and against the proof's vk hash.
+   * The capsules an Aztec contract reads for a circuits 0.23.x proof: for an `outer_count_N` proof
+   * with `verify_zkpassport_proof`, the proof capsule, then the disclose, sanctions and face match
+   * capsules of the committed inputs the proof carries; for an `outer_attested_id_count_N` proof of
+   * an ID read by camera, with `verify_device_attested_proof`, the proof capsule, the disclose and
+   * sanctions capsules, and the attested ID capsule of its device attestation. The outer circuit's
+   * vk comes from `registryClient`, checked against the circuit manifest of the proof's version and
+   * against the proof's vk hash.
    */
   public static async getParameters({
     proof,
@@ -40,7 +45,9 @@ export class AztecVerifier {
     proof: ProofResult
     registryClient: RegistryClient
   }): Promise<AztecVerifierParameters> {
-    const subproofs = Number(proof.name?.match(/^outer_count_(\d+)$/)?.[1])
+    const outer = proof.name?.match(/^outer_(attested_id_)?count_(\d+)$/)
+    const attested = Boolean(outer?.[1])
+    const subproofs = Number(outer?.[2])
     if (!subproofs) {
       throw new Error(
         "This proof cannot be verified on Aztec. Please make sure to use the `compressed` mode.",
@@ -57,6 +64,11 @@ export class AztecVerifier {
     }
     const committedInputs = proof.committedInputs ?? {}
     const facematch = committedInputs.facematch as FacematchCommittedInputs | undefined
+    const attestation = (committedInputs.attested_id_ios ?? committedInputs.attested_id_android) as
+      AttestedIdCommittedInputs | undefined
+    if (attested && !attestation) {
+      throw new Error(`The ${proof.name} proof is missing its attested ID inputs`)
+    }
 
     const manifest = await registryClient.getCircuitManifest(undefined, { version: proof.version })
     const circuit = await registryClient.getPackagedCircuit(proof.name!, manifest)
@@ -80,6 +92,7 @@ export class AztecVerifier {
             version: proof.version,
           },
           subproofs,
+          attested,
         ),
       },
     ]
@@ -103,6 +116,13 @@ export class AztecVerifier {
       capsules.push({
         slot: AZTEC_FACE_MATCH_CAPSULE_SLOT,
         fields: getAztecFacematchCapsule(facematch),
+      })
+    }
+    // The attestation's parameters are a face match's, in the same order
+    if (attestation) {
+      capsules.push({
+        slot: AZTEC_ATTESTED_ID_CAPSULE_SLOT,
+        fields: getAztecFacematchCapsule(attestation),
       })
     }
 

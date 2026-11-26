@@ -53,6 +53,16 @@ pub(crate) global FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT: Field =
 pub(crate) global FACE_MATCH_ANDROID_STRICT_COMMITMENT: Field =
     0x1ec0db9cde1f07c72a2fb5ce008c18bd9ad150477fef05665aba7e09bb5dfa11;
 
+/// attested_id_commitment of FACE_MATCH_IOS_STRICT_COMMITMENT's parameters: the device attestation
+/// of an ID read by ZKPassport's iOS app's camera.
+pub(crate) global ATTESTED_ID_IOS_COMMITMENT: Field =
+    0x278a2c9e6cce77d0b89a9e961c6b4f2d154155c78585dc951bd11c61abe674f3;
+
+/// attested_id_commitment of FACE_MATCH_ANDROID_STRICT_COMMITMENT's parameters: the device
+/// attestation of an ID read by ZKPassport's Android app's camera.
+pub(crate) global ATTESTED_ID_ANDROID_COMMITMENT: Field =
+    0x2c1191ed307fa5424b06b511082cf6df074c3777c0cb04b15cea10a9c19fc4be;
+
 /// An account address to bind a proof to. @zkpassport/utils' bind conformance vector uses the
 /// same one.
 pub(crate) global BIND_ACCOUNT: Field =

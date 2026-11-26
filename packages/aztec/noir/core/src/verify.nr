@@ -1,46 +1,39 @@
 use crate::constants::{
     NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
-    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_FIELDS, VERIFICATION_METHOD_ICAO_CHIP,
-    VK_FIELDS,
+    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_FIELDS,
+    VERIFICATION_TIER_DEVICE_ATTESTED, VERIFICATION_TIER_GOVERNMENT_SIGNED, VK_FIELDS,
 };
 use crate::parse::{parse_public_inputs, PublicInputs};
 use bb_proof_verification::verify_honk_proof;
 use poseidon::poseidon2::Poseidon2;
 
-pub struct VerifiedOuterProof<let K: u32> {
-    pub parsed: PublicInputs<K>,
+pub struct VerifiedOuterProof<let P: u32> {
+    pub parsed: PublicInputs<P>,
     pub vk_hash: Field,
 }
 
-/// Verifies a circuits 0.23.x outer proof (K + 6 public inputs) of an ICAO chip read.
+/// Verifies a circuits 0.23.x outer proof with `P` param commitments (P + 9 public inputs).
 ///
-/// Does NOT check: the circuits version, registry roots, vk acceptance, OPRF binding, or freshness
-/// (needs a PrivateContext).
-pub fn verify_outer_proof_core<let K: u32>(
+/// Does NOT check: the verification method, the circuits version, registry roots, vk acceptance,
+/// OPRF binding, or freshness (needs a PrivateContext).
+pub fn verify_outer_proof_core<let P: u32>(
     vk: [Field; VK_FIELDS],
     proof: [Field; PROOF_FIELDS],
-    public_inputs: [Field; K + 6],
+    public_inputs: [Field; P + 9],
     domain: Field,
     scope: Field,
     dev_mode: bool,
-    expected_commitments: [Field; K - 3],
-) -> VerifiedOuterProof<K> {
+    expected_commitments: [Field; P],
+) -> VerifiedOuterProof<P> {
     // key_hash is recomputed from the vk itself; bb independently asserts key_hash == poseidon2(vk),
     // so passing a self-computed hash is sound — and the registry pins WHICH vks are trusted.
     let vk_hash = Poseidon2::hash(vk, VK_FIELDS);
     verify_honk_proof(vk, proof, public_inputs, vk_hash);
 
-    let parsed = parse_public_inputs::<K>(public_inputs);
+    let parsed = parse_public_inputs::<P>(public_inputs);
 
     assert(parsed.domain == domain, "wrong service domain");
     assert(parsed.scope == scope, "wrong service scope");
-
-    // Other methods (Aadhaar, a device-attested capture) need checks L1 runs and this library
-    // doesn't, such as the attestation's revocation root.
-    assert(
-        parsed.verification_method == VERIFICATION_METHOD_ICAO_CHIP,
-        "unsupported verification method",
-    );
 
     let nt = parsed.nullifier_type;
     let is_standard = (nt == NULLIFIER_TYPE_NON_SALTED)
@@ -63,10 +56,10 @@ pub fn verify_outer_proof_core<let K: u32>(
     // order is not contractual — the prover decides the subproof (and thus slot) order and the
     // ZKPassport SDK itself matches by membership, so e.g. a {constraint, bind} pair may arrive
     // either way across SDK versions.
-    let mut used = [false; K - 3];
-    for i in 0..K - 3 {
+    let mut used = [false; P];
+    for i in 0..P {
         let mut found = false;
-        for j in 0..K - 3 {
+        for j in 0..P {
             let hit =
                 (!used[j]) & (!found) & (parsed.param_commitments[j] == expected_commitments[i]);
             used[j] = used[j] | hit;
@@ -78,8 +71,21 @@ pub fn verify_outer_proof_core<let K: u32>(
     VerifiedOuterProof { parsed, vk_hash }
 }
 
+/// The tier of a verification method: `VERIFICATION_TIER_GOVERNMENT_SIGNED` for 100-199,
+/// `VERIFICATION_TIER_DEVICE_ATTESTED` for 200-299, 0 for anything else.
+pub fn verification_tier(method: Field) -> Field {
+    let small = method as u32;
+    if (small as Field == method) & (small >= 100) & (small < 200) {
+        VERIFICATION_TIER_GOVERNMENT_SIGNED
+    } else if (small as Field == method) & (small >= 200) & (small < 300) {
+        VERIFICATION_TIER_DEVICE_ATTESTED
+    } else {
+        0
+    }
+}
+
 mod test {
-    use crate::verify::verify_outer_proof_core;
+    use crate::verify::{verification_tier, verify_outer_proof_core};
     // NOTE: nargo test no-ops the recursion opcode — these tests cover parsing/policy/commitment
     // logic only. Real recursion coverage lives in test-harness/test-recursive-verification.sh (bb verify).
 
@@ -88,7 +94,7 @@ mod test {
         let vk = [0; 115];
         let proof = [0; 458];
         let pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0xbad, 0, false, [pis[5]]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0xbad, 0, false, [pis[5]]);
     }
 
     #[test(should_fail_with = "wrong service scope")]
@@ -96,17 +102,18 @@ mod test {
         let vk = [0; 115];
         let proof = [0; 458];
         let pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0xbad, false, [pis[5]]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0xbad, false, [pis[5]]);
     }
 
-    // Aadhaar (101) and a device-attested capture (200, 201) need checks this library lacks
-    #[test(should_fail_with = "unsupported verification method")]
-    fn non_chip_verification_method_rejected() {
-        let vk = [0; 115];
-        let proof = [0; 458];
-        let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
-        pis[9] = 200;
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
+    #[test]
+    fn verification_tiers() {
+        assert(verification_tier(100) == 1);
+        assert(verification_tier(199) == 1);
+        assert(verification_tier(200) == 2);
+        assert(verification_tier(201) == 2);
+        assert(verification_tier(99) == 0);
+        assert(verification_tier(300) == 0);
+        assert(verification_tier(0x100000064) == 0); // 2^32 + 100
     }
 
     #[test(should_fail_with = "param commitment mismatch")]
@@ -114,7 +121,7 @@ mod test {
         let vk = [0; 115];
         let proof = [0; 458];
         let pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [0x1234]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0, false, [0x1234]);
     }
 
     #[test(should_fail_with = "nullifier type requires dev mode")]
@@ -123,7 +130,7 @@ mod test {
         let proof = [0; 458];
         let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
         pis[6] = 2; // NON_SALTED_MOCK
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0, false, [pis[5]]);
     }
 
     // A ZKR (mock) document keeps its mock nullifier type when the prover hides the private
@@ -135,9 +142,9 @@ mod test {
         let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
         pis[7] = 0; // scoped_nullifier
         pis[6] = 2; // NON_SALTED_MOCK
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, true, [pis[5]]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0, true, [pis[5]]);
         pis[6] = 3; // SALTED_MOCK
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, true, [pis[5]]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0, true, [pis[5]]);
     }
 
     #[test(should_fail_with = "nullifier type requires dev mode")]
@@ -147,7 +154,7 @@ mod test {
         let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
         pis[6] = 2; // NON_SALTED_MOCK
         pis[7] = 0; // scoped_nullifier
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0, false, [pis[5]]);
     }
 
     #[test(should_fail_with = "zero scoped nullifier")]
@@ -157,11 +164,11 @@ mod test {
         let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
         pis[6] = 0; // NON_SALTED
         pis[7] = 0; // scoped_nullifier
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, true, [pis[5]]);
+        let _ = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0, true, [pis[5]]);
     }
 
     // [a, b] must accept a proof carrying [b, a] — the SDK does not fix the subproof (and
-    // thus param-commitment) order. Uses K=5 (two commitment slots) like voice's queries.
+    // thus param-commitment) order. Uses two commitment slots, an outer_count_5 proof.
     #[test]
     fn accepts_swapped_commitments() {
         let vk = [0; 115];
@@ -177,7 +184,7 @@ mod test {
         pis[8] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[7]; // scoped_nullifier
         pis[9] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[8]; // oprf_pk_hash
         pis[10] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[9]; // verification_method
-        let out = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xbbbb, 0xaaaa]);
+        let out = verify_outer_proof_core::<2>(vk, proof, pis, 0, 0, false, [0xbbbb, 0xaaaa]);
         assert(out.parsed.param_commitments[0] == 0xaaaa);
         assert(out.parsed.param_commitments[1] == 0xbbbb);
     }
@@ -198,7 +205,7 @@ mod test {
         pis[8] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[7];
         pis[9] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[8];
         pis[10] = crate::fixtures::FIXTURE_PUBLIC_INPUTS[9];
-        let _ = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xaaaa, 0xaaaa]);
+        let _ = verify_outer_proof_core::<2>(vk, proof, pis, 0, 0, false, [0xaaaa, 0xaaaa]);
     }
 
     // IMP-1: NULLIFIER_TYPE_NONE (=4) is a privacy-maximising, no-uniqueness mode -- the
@@ -212,7 +219,7 @@ mod test {
         let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
         pis[6] = 4; // NULLIFIER_TYPE_NONE
         pis[7] = 0; // scoped_nullifier
-        let out = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
+        let out = verify_outer_proof_core::<1>(vk, proof, pis, 0, 0, false, [pis[5]]);
         assert(out.parsed.nullifier_type == 4);
         assert(out.parsed.scoped_nullifier == 0);
     }

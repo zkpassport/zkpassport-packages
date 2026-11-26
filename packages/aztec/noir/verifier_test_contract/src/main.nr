@@ -7,10 +7,14 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract VerifierTest {
     use aztec::{macros::functions::external, protocol::address::AztecAddress};
-    use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_SALTED;
+    use zkpassport_aztec_verifier::constants::{
+        NULLIFIER_TYPE_SALTED, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+        VERIFICATION_TIER_DEVICE_ATTESTED,
+    };
     use zkpassport_aztec_verifier::query::Query;
     use zkpassport_aztec_verifier::verify::{
-        ServiceConfig, verify_zkpassport_proof, verify_zkpassport_proof_for_user,
+        ServiceConfig, verify_device_attested_proof_for_user, verify_zkpassport_proof,
+        verify_zkpassport_proof_for_user,
     };
     use zkpassport_aztec_verifier::version::circuit_version;
 
@@ -20,6 +24,56 @@ pub contract VerifierTest {
     // strict face match
     global SALTED_SERVICE: ServiceConfig =
         ServiceConfig::new("example.com").unique_identifier_type(NULLIFIER_TYPE_SALTED);
+
+    // Apps that accept IDs read by the camera of ZKPassport's app on either platform, and on iPhones
+    // only
+    global CAMERA_SERVICE: ServiceConfig =
+        ServiceConfig::new("example.com").allow_tier(VERIFICATION_TIER_DEVICE_ATTESTED);
+    global IPHONE_CAMERA_SERVICE: ServiceConfig =
+        ServiceConfig::new("example.com").allow_method(VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+
+    // The unique identifier and verification method of a camera-read ID's proof of age
+    #[external("private")]
+    fn verify_attested_age(user: AztecAddress) -> [Field; 2] {
+        let query = Query::new().age_min(18);
+        let verified = verify_device_attested_proof_for_user(
+            self.context,
+            self.msg_sender(),
+            user,
+            CAMERA_SERVICE,
+            query,
+        );
+        [verified.unique_identifier, verified.verification_method]
+    }
+
+    #[external("private")]
+    fn verify_attested_age_on_iphones(user: AztecAddress) -> Field {
+        let query = Query::new().age_min(18);
+        verify_device_attested_proof_for_user(
+            self.context,
+            self.msg_sender(),
+            user,
+            IPHONE_CAMERA_SERVICE,
+            query,
+        )
+            .unique_identifier
+    }
+
+    // The attested ID commitment of the face match a strict face match query reads
+    #[external("private")]
+    fn verify_attested_age_with_strict_face_match(user: AztecAddress) -> Field {
+        let query = Query::new().age_min(18).strict_face_match();
+        verify_device_attested_proof_for_user(
+            self.context,
+            self.msg_sender(),
+            user,
+            CAMERA_SERVICE,
+            query,
+        )
+            .face_match
+            .unwrap()
+            .attested_id_commitment()
+    }
 
     #[external("private")]
     fn verify_age(user: AztecAddress) -> Field {

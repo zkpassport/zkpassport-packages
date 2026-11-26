@@ -25,6 +25,7 @@ export const AZTEC_PROOF_CAPSULE_SLOT = 1
 export const AZTEC_DISCLOSE_CAPSULE_SLOT = 2
 export const AZTEC_SANCTIONS_CAPSULE_SLOT = 3
 export const AZTEC_FACE_MATCH_CAPSULE_SLOT = 4
+export const AZTEC_ATTESTED_ID_CAPSULE_SLOT = 5
 
 const AZTEC_SUPPORTED_CIRCUITS_MAJOR = 0
 const AZTEC_SUPPORTED_CIRCUITS_MINOR = 23
@@ -43,20 +44,24 @@ export function isAztecSupportedCircuitVersion(version: string): boolean {
 
 /**
  * Public inputs of a circuits 0.23.x `outer_count_<subproofs>` proof: 5, then a param commitment
- * per subproof after the first 3, then the trailing inputs, ending in the verification method
+ * per subproof after the first 3, then the trailing inputs, ending in the verification method.
+ * With `attested`, of an `outer_attested_id_count_<subproofs>` proof, which commits every subproof:
+ * its attested ID proof stands in for the chip's 3.
  */
-export function getAztecOuterPublicInputCount(subproofs: number): number {
-  return 5 + (subproofs - 3) + outerTrailingInputs(true).length
+export function getAztecOuterPublicInputCount(subproofs: number, attested = false): number {
+  return 5 + (attested ? subproofs : subproofs - 3) + outerTrailingInputs(true).length
 }
 
 /**
- * The proof capsule of a circuits 0.23.x `outer_count_<subproofs>` proof:
- * vk ‖ proof ‖ public inputs ‖ circuit version, the version packed as the registry keys vks by
- * it. The fields can be bare hex, as getProofData returns a proof's fields.
+ * The proof capsule of a circuits 0.23.x `outer_count_<subproofs>` proof, or with `attested` of an
+ * `outer_attested_id_count_<subproofs>` proof: vk ‖ proof ‖ public inputs ‖ circuit version, the
+ * version packed as the registry keys vks by it. The fields can be bare hex, as getProofData
+ * returns a proof's fields.
  */
 export function getAztecProofCapsule(
   parts: { vk: string[]; proof: string[]; publicInputs: string[]; version: string },
   subproofs: number,
+  attested = false,
 ): string[] {
   if (!isAztecSupportedCircuitVersion(parts.version)) {
     throw new Error(
@@ -64,7 +69,8 @@ export function getAztecProofCapsule(
         `verifies circuits ${AZTEC_SUPPORTED_CIRCUIT_VERSION_LABEL}`,
     )
   }
-  const publicInputCount = getAztecOuterPublicInputCount(subproofs)
+  const publicInputCount = getAztecOuterPublicInputCount(subproofs, attested)
+  const circuit = attested ? `outer_attested_id_count_${subproofs}` : `outer_count_${subproofs}`
   if (
     parts.vk.length !== AZTEC_OUTER_VK_FIELDS ||
     parts.proof.length !== AZTEC_OUTER_PROOF_FIELDS ||
@@ -73,7 +79,7 @@ export function getAztecProofCapsule(
     throw new Error(
       `Outer proof shape mismatch: vk ${parts.vk.length}/${AZTEC_OUTER_VK_FIELDS}, ` +
         `proof ${parts.proof.length}/${AZTEC_OUTER_PROOF_FIELDS}, public inputs ` +
-        `${parts.publicInputs.length}/${publicInputCount}, expected an outer_count_${subproofs} ` +
+        `${parts.publicInputs.length}/${publicInputCount}, expected an ${circuit} ` +
         `proof of circuits ${AZTEC_SUPPORTED_CIRCUIT_VERSION_LABEL}`,
     )
   }

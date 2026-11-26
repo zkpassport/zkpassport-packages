@@ -23,6 +23,13 @@ test("a circuits 0.23.x outer_count_N proof has N + 6 public inputs", () => {
   expect(getAztecOuterPublicInputCount(5)).toBe(11)
 })
 
+// Its attested ID proof stands in for the chip's 3 and is committed like the disclosure proofs, so
+// it answers the same request as an outer_count_(N + 2) proof with one public input more
+test("a circuits 0.23.x outer_attested_id_count_N proof has N + 9 public inputs", () => {
+  expect(getAztecOuterPublicInputCount(3, true)).toBe(12)
+  expect(getAztecOuterPublicInputCount(3, true)).toBe(getAztecOuterPublicInputCount(5) + 1)
+})
+
 describe("getAztecProofCapsule", () => {
   test("lays out vk, proof, public inputs and version of outer_count_5 in 585 fields", () => {
     const capsule = getAztecProofCapsule(parts, 5)
@@ -31,6 +38,13 @@ describe("getAztecProofCapsule", () => {
     expect(capsule[0]).toBe(`0x${"01".padStart(64, "0")}`)
     expect(capsule[115]).toBe(`0x${"02".padStart(64, "0")}`)
     expect(capsule[573]).toBe(`0x${"11".padStart(64, "0")}`)
+  })
+
+  test("lays out an outer_attested_id_count_3 proof in 586 fields", () => {
+    const capsule = getAztecProofCapsule({ ...parts, publicInputs: Array(12).fill("11") }, 3, true)
+
+    expect(capsule).toHaveLength(586)
+    expect(() => getAztecProofCapsule(parts, 3, true)).toThrow(/outer_attested_id_count_3/)
   })
 
   test("ends with the circuits release, packed as the registry keys vks", () => {
