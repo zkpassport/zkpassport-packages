@@ -89,13 +89,12 @@ export function isSafariUserAgent(userAgent: string): boolean {
   return SAFARI_PRODUCTS.includes(products)
 }
 
-/**
- * Whether a link is the page we are on (query aside): opening it would only open this page again.
- * The host does not count: the popup shows the `/c` page on its own host, not on zkpassport.id
- */
+/** Whether a link is the page we are on (query aside): opening it would only open this page again */
 export function isSamePage(url: string, here: string): boolean {
   try {
-    return new URL(url).pathname === new URL(here).pathname
+    const target = new URL(url)
+    const current = new URL(here)
+    return target.origin === current.origin && target.pathname === current.pathname
   } catch {
     return false
   }
