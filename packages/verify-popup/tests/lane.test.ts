@@ -62,6 +62,12 @@ describe("isSamePage", () => {
     expect(isSamePage(clip, "https://zkpassport.id/r?d=example.com")).toBe(false)
     expect(isSamePage("not a url", "https://zkpassport.id/c")).toBe(false)
   })
+
+  it("is true on the popup's /c page too, which is on another host than the link", () => {
+    const clip = withLane(REQUEST, "c")
+    const popupClipPage = "https://verify.zkpassport.id/c?d=example.com&t=abc#s=session"
+    expect(isSamePage(clip, popupClipPage)).toBe(true)
+  })
 })
 
 const IPHONE =
