@@ -177,9 +177,9 @@ fn leading_zero_bytes(bytes: [u8; 4]) -> u8 {
     }
 }
 
-// `bytes` with `count` bytes, 0 to 3, removed at `index`: the bytes after them move forward and zeros
-// fill the end. Each byte is picked from the 4 it can come from, at fixed positions, because writing
-// at a position that depends on `count` costs far more gates.
+// `bytes` with `count` bytes, 0 to 3, removed at `index`: the bytes after them move forward and
+// zeros fill the end. Each byte is picked from the 4 it can come from, at fixed positions, because
+// writing at a position that depends on `count` costs far more gates.
 fn remove_bytes<let N: u32>(bytes: [u8; N], index: u32, count: u8) -> [u8; N] {
     let byte_at = |i: u32| if i < N { bytes[i] } else { 0 };
 
