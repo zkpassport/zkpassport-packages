@@ -96,101 +96,106 @@ pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
 }
 
-/// bind(user_address, chain, custom_data): the 509-byte bound data @zkpassport/utils'
-/// formatBoundData writes, then zero padding. The address and the custom data are optional, the
-/// chain is not:
-/// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address]
-/// [identifier = 2 (CHAIN_ID)][len_hi = 0][len_lo = n][chain id as n BE bytes, n as small as fits]
-/// [identifier = 3 (CUSTOM_DATA)][len_hi][len_lo][custom data bytes]
-/// An Aztec network's chain id is its rollup version, a 4-byte number, so `chain_id` must fit in
-/// 4 bytes. formatBoundData writes no custom data entry for empty custom data, so `custom_data`
-/// holds at least one byte when it is some.
+// The identifiers of the entries in the bound data
+global BOUND_USER_ADDRESS: u8 = 1;
+global BOUND_CHAIN_ID: u8 = 2;
+global BOUND_CUSTOM_DATA: u8 = 3;
+
+/// bind(user_address, chain, custom_data): the bound data @zkpassport/utils' formatBoundData
+/// writes, then zero padding to 509 bytes. Each entry is an identifier, a 2-byte big-endian length
+/// and the value, in this order:
+///
+/// | entry        | identifier | value                                                  |
+/// |--------------|------------|--------------------------------------------------------|
+/// | user address | 1          | 32 bytes, big-endian; left out when `account` is none  |
+/// | chain id     | 2          | as few big-endian bytes as hold it, 1 to 4             |
+/// | custom data  | 3          | 1 to 464 bytes; left out when `custom_data` is none    |
+///
+/// An Aztec network's chain id is its rollup version, which fits in 4 bytes. formatBoundData
+/// writes no custom data entry for empty custom data, so `custom_data` holds at least one byte
+/// when it is some.
 pub fn bind_commitment(
     account: Option<Field>,
     chain_id: Field,
     custom_data: Option<BoundedVec<u8, CUSTOM_DATA_MAX_LENGTH>>,
 ) -> Field {
     let chain_id_bytes: [u8; 4] = chain_id.to_be_bytes();
-    let leading_zero_bytes: u8 = if chain_id_bytes[0] != 0 {
-        0
-    } else if chain_id_bytes[1] != 0 {
-        1
-    } else if chain_id_bytes[2] != 0 {
-        2
-    } else {
-        3
-    };
+    let unused_chain_id_bytes = leading_zero_bytes(chain_id_bytes);
 
-    // The chain id and custom data entries, with the chain id in all 4 of its bytes
+    // The chain id and custom data entries, first with all 4 bytes of the chain id
     let mut entries = [0 as u8; BIND_ENTRIES_LENGTH];
-    entries[0] = 2;
-    entries[1] = 0;
-    entries[2] = 4 - leading_zero_bytes;
+    entries[0] = BOUND_CHAIN_ID;
+    entries[2] = 4 - unused_chain_id_bytes;
     for i in 0..4 {
         entries[3 + i] = chain_id_bytes[i];
     }
     if custom_data.is_some() {
         let custom_data = custom_data.unwrap();
         let length = custom_data.len();
-        entries[7] = 3;
+        entries[7] = BOUND_CUSTOM_DATA;
         entries[8] = (length >> 8) as u8;
         entries[9] = length as u8;
         for i in 0..CUSTOM_DATA_MAX_LENGTH {
-            entries[10 + i] = if i < length {
-                custom_data.get_unchecked(i)
-            } else {
-                0
-            };
+            if i < length {
+                entries[10 + i] = custom_data.get_unchecked(i);
+            }
         }
     }
-
-    // Dropping the chain id's leading zero bytes moves everything after them forward. Each byte is
-    // picked from the 4 it can be at fixed indices, since a write at an index that depends on the
-    // chain id costs far more gates.
-    let (one, two, three) =
-        (leading_zero_bytes == 1, leading_zero_bytes == 2, leading_zero_bytes == 3);
-    let mut shifted = [0 as u8; BIND_ENTRIES_LENGTH];
-    for i in 0..3 {
-        shifted[i] = entries[i];
-    }
-    for i in 3..BIND_ENTRIES_LENGTH {
-        let at = |offset: u32| {
-            if i + offset < BIND_ENTRIES_LENGTH {
-                entries[i + offset]
-            } else {
-                0
-            }
-        };
-        shifted[i] = if three {
-            at(3)
-        } else if two {
-            at(2)
-        } else if one {
-            at(1)
-        } else {
-            at(0)
-        };
-    }
+    let entries = remove_bytes(entries, 3, unused_chain_id_bytes);
 
     let mut data = [0 as u8; 509];
     if account.is_some() {
-        data[0] = 1;
-        data[1] = 0;
-        data[2] = 32;
         let account_bytes: [u8; 32] = account.unwrap().to_be_bytes();
+        data[0] = BOUND_USER_ADDRESS;
+        data[2] = 32;
         for i in 0..32 {
             data[3 + i] = account_bytes[i];
         }
         for i in 0..BIND_ENTRIES_LENGTH {
-            data[35 + i] = shifted[i];
+            data[35 + i] = entries[i];
         }
     } else {
         for i in 0..BIND_ENTRIES_LENGTH {
-            data[i] = shifted[i];
+            data[i] = entries[i];
         }
     }
 
     bind_param_commitment(data)
+}
+
+// The number of leading zero bytes in a 4-byte big-endian number, at most 3: a zero chain id
+// takes one byte
+fn leading_zero_bytes(bytes: [u8; 4]) -> u8 {
+    if bytes[0] != 0 {
+        0
+    } else if bytes[1] != 0 {
+        1
+    } else if bytes[2] != 0 {
+        2
+    } else {
+        3
+    }
+}
+
+// `bytes` with `count` bytes, 0 to 3, removed at `index`: the bytes after them move forward and zeros
+// fill the end. Each byte is picked from the 4 it can come from, at fixed positions, because writing
+// at a position that depends on `count` costs far more gates.
+fn remove_bytes<let N: u32>(bytes: [u8; N], index: u32, count: u8) -> [u8; N] {
+    let byte_at = |i: u32| if i < N { bytes[i] } else { 0 };
+
+    let mut removed = bytes;
+    for i in index..N {
+        removed[i] = if count == 3 {
+            byte_at(i + 3)
+        } else if count == 2 {
+            byte_at(i + 2)
+        } else if count == 1 {
+            byte_at(i + 1)
+        } else {
+            bytes[i]
+        };
+    }
+    removed
 }
 
 // The circuits count birthdates from 1900 so that they can reach before 1970.
