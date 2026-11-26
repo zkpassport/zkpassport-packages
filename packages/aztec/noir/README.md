@@ -24,7 +24,7 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions/Android attestation revocation) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_attestation_revocation_root_accepted`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
 | `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), ZKPassport's app ids and the attestation root keys a face match is checked against (`app_attest.nr`, the L1 verifier's `AppAttest` constants), a face match's parameters, the parser for their capsule payload and the L1 verifier's policy for them (`face_match.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs, and `face_match_commitment`, which computes the circuits 0.23.0 face match commitment itself. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
-| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `app_attest`, `commitments`, `constants`, `disclosed_data`, `face_match` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose, sanctions and face match payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `app_attest`, `commitments`, `constants`, `disclosed_data`, `face_match` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose, sanctions and face match payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier` and `emit_custom_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crate (upstream noir-contracts style):
@@ -71,6 +71,13 @@ fn claim(user: AztecAddress) {
     self.enqueue_self._grant_badge(user);
 }
 ```
+
+`emit_uniqueness_nullifier` allows one claim per passport in the contract that pushes it.
+`emit_custom_uniqueness_nullifier(context, verified.unique_identifier, components)` allows one per
+passport per set of `components`. A contract that verifies through another contract's private
+function, so it can switch verifiers, has that function return the `UniqueIdentifier` and pushes the
+nullifier itself, so its count survives a verifier change. The capsules then go to the verifier
+contract, under the scope the app passes it.
 
 `ServiceConfig::new` takes the domain as a hostname, and lowercases it as the ZKPassport SDK does; a
 URL, a port, a path or whitespace fails. `ServiceConfig::from_domain_hash` takes a domain already

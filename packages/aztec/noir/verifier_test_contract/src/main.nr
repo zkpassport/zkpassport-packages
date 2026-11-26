@@ -10,7 +10,8 @@ pub contract VerifierTest {
     use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_SALTED;
     use zkpassport_aztec_verifier::query::Query;
     use zkpassport_aztec_verifier::verify::{
-        ServiceConfig, verify_zkpassport_proof, verify_zkpassport_proof_for_user,
+        emit_custom_uniqueness_nullifier, emit_uniqueness_nullifier, ServiceConfig,
+        UniqueIdentifier, verify_zkpassport_proof, verify_zkpassport_proof_for_user,
     };
     use zkpassport_aztec_verifier::version::circuit_version;
 
@@ -21,14 +22,56 @@ pub contract VerifierTest {
     global SALTED_SERVICE: ServiceConfig =
         ServiceConfig::new("example.com").unique_identifier_type(NULLIFIER_TYPE_SALTED);
 
+    global CLAIM_DOMAIN: Field = 0xc1a1;
+
     #[external("private")]
-    fn verify_age(user: AztecAddress) -> Field {
+    fn verify_age(user: AztecAddress) -> UniqueIdentifier {
         let query = Query::new().age_min(18).bind_user_address(user);
         verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).unique_identifier
     }
 
+    // As a verifier contract an app calls: the capsules are delivered to this contract under the
+    // scope the app passes, since the app is this call's msg_sender
     #[external("private")]
-    fn verify_age_for_user(user: AztecAddress) -> Field {
+    fn verify_age_for(capsule_scope: AztecAddress, user: AztecAddress) -> UniqueIdentifier {
+        let query = Query::new().age_min(18);
+        verify_zkpassport_proof_for_user(self.context, capsule_scope, user, SERVICE, query)
+            .unique_identifier
+    }
+
+    #[external("private")]
+    fn claim_age(user: AztecAddress) {
+        let query = Query::new().age_min(18);
+        let verified =
+            verify_zkpassport_proof_for_user(self.context, self.msg_sender(), user, SERVICE, query);
+        emit_uniqueness_nullifier(self.context, verified.unique_identifier);
+    }
+
+    #[external("private")]
+    fn claim_age_with_component(user: AztecAddress, component: Field) {
+        let query = Query::new().age_min(18);
+        let verified =
+            verify_zkpassport_proof_for_user(self.context, self.msg_sender(), user, SERVICE, query);
+        emit_custom_uniqueness_nullifier(
+            self.context,
+            verified.unique_identifier,
+            [CLAIM_DOMAIN, component],
+        );
+    }
+
+    #[external("private")]
+    fn claim_age_with_component_through_a_verifier(user: AztecAddress, component: Field) {
+        let unique_identifier =
+            self.call(VerifierTest::at(self.address).verify_age_for(self.msg_sender(), user));
+        emit_custom_uniqueness_nullifier(
+            self.context,
+            unique_identifier,
+            [CLAIM_DOMAIN, component],
+        );
+    }
+
+    #[external("private")]
+    fn verify_age_for_user(user: AztecAddress) -> UniqueIdentifier {
         let query = Query::new().age_min(18);
         verify_zkpassport_proof_for_user(self.context, self.msg_sender(), user, SERVICE, query)
             .unique_identifier
@@ -36,7 +79,7 @@ pub contract VerifierTest {
 
     // An app that only accepts proofs from circuits 0.23.1 or later
     #[external("private")]
-    fn verify_age_from_0_23_1(user: AztecAddress) -> Field {
+    fn verify_age_from_0_23_1(user: AztecAddress) -> UniqueIdentifier {
         let config = SERVICE.min_version(circuit_version(0, 23, 1));
         let query = Query::new().age_min(18).bind_user_address(user);
         verify_zkpassport_proof(self.context, self.msg_sender(), config, query).unique_identifier
@@ -80,7 +123,7 @@ pub contract VerifierTest {
         let query = Query::new().strict_face_match().bind_user_address(user);
         let verified =
             verify_zkpassport_proof(self.context, self.msg_sender(), SALTED_SERVICE, query);
-        [verified.unique_identifier, verified.face_match.unwrap().commitment()]
+        [verified.unique_identifier.value, verified.face_match.unwrap().commitment()]
     }
 
     #[external("private")]
