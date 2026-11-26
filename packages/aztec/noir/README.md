@@ -150,9 +150,9 @@ const blob = [
   FIXTURE.circuitVersionPacked,
 ].map((h) => Fr.fromHexString(h))
 
-// The capsule is scoped to `user` — the sandbox account sending the transaction. The claim
-// itself goes to the fixture's bound address: the proof carries a bind commitment over it,
-// so the sender is effectively a relayer and the badge recipient needs no account here.
+// The capsule is scoped to `user`, the local network test account sending the transaction. The
+// claim goes to the fixture's bound address, which the proof carries a bind commitment over: the
+// same test account.
 const boundUser = AztecAddress.fromFieldUnsafe(Fr.fromHexString(FIXTURE.bindAddress))
 const capsule = (fields: Fr[]) =>
   new Capsule(ageGate.address, PROOF_CAPSULE_SLOT, fields, user as AztecAddress)

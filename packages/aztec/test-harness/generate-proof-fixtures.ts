@@ -70,9 +70,9 @@ if (FIXTURE_KIND !== "disclose" && FIXTURE_KIND !== "age") {
 const AGE_MIN = 18
 const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
 
-// The address the age proof is bound to (the bind subproof's user_address). Must equal the
-// BIND_ACCOUNT anchor in fixtures.nr.
-const BIND_ADDRESS = "0x1122334455667788990011223344556677889900112233445566778899001122"
+// The address the age proof is bound to (the bind subproof's user_address): the third initial test
+// account of Aztec 6.0.0's local network, so a contract can send a note to it there
+const BIND_ADDRESS = "0x12e9f7c55fde8e16d302671fa37f39399b72d6e9f019623f0b1801070a0effc9"
 
 // The chain the age proof is bound to: a local network started with Aztec 6.0.0's
 // `aztec start --local-network`, whose chain id is the rollup version its contracts read from their
