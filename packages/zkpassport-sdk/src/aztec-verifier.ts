@@ -111,10 +111,10 @@ export class AztecVerifier {
 
   /**
    * The Aztec network whose circuits host serves a proof's vk: the network the proof is bound to,
-   * or `network` for a proof bound to none. The Aztec library's bind covers a user address and the
-   * contract's network, nothing else, so a proof whose bind holds anything else never verifies, nor
-   * does a proof bound to one network on another: each of these is an error, as is a proof bound
-   * to no network without a `network`.
+   * or `network` for a proof bound to none. The Aztec library's bind covers the contract's network
+   * and a 32-byte user address, custom data of at most 464 bytes or both, so a proof whose bind holds
+   * anything else never verifies, nor does a proof bound to one network on another: each of these is
+   * an error, as is a proof bound to no network without a `network`.
    */
   public static getChain(proof: ProofResult, network?: AztecNetwork): AztecNetwork {
     const bind = proof.committedInputs?.bind as BindCommittedInputs | undefined
@@ -127,11 +127,23 @@ export class AztecVerifier {
       return network
     }
 
-    const { user_address, chain, custom_data } = bind.data
-    if (!user_address || !chain || custom_data || !/^0x[0-9a-fA-F]{64}$/.test(user_address)) {
+    const { user_address, chain } = bind.data
+    // formatBoundData writes no custom data entry for an empty string
+    const custom_data = bind.data.custom_data || undefined
+    const bindsAddress = user_address !== undefined && /^0x[0-9a-fA-F]{64}$/.test(user_address)
+    const bindsCustomData =
+      custom_data !== undefined &&
+      new TextEncoder().encode(custom_data).length <= AZTEC_CUSTOM_DATA_MAX_LENGTH
+    if (
+      !chain ||
+      (user_address !== undefined && !bindsAddress) ||
+      (custom_data !== undefined && !bindsCustomData) ||
+      (!bindsAddress && !bindsCustomData)
+    ) {
       throw new Error(
-        "This proof's bind cannot be verified on Aztec, which binds a 32-byte user address and an " +
-          "Aztec network only: request a new proof that binds the user's address and the network",
+        "This proof's bind cannot be verified on Aztec, which binds an Aztec network with a 32-byte " +
+          "user address, custom data of at most 464 bytes or both: request a new proof that binds " +
+          "them",
       )
     }
     if (chain !== "aztec" && chain !== "aztec_testnet") {
@@ -143,6 +155,9 @@ export class AztecVerifier {
     return chain
   }
 }
+
+// The most custom data, in UTF-8 bytes, ZKPassport's Aztec library binds
+const AZTEC_CUSTOM_DATA_MAX_LENGTH = 464
 
 function hexPrefixed(hex: string): string {
   return hex.startsWith("0x") ? hex : `0x${hex}`

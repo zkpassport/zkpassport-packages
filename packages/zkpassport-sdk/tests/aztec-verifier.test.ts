@@ -233,12 +233,26 @@ describe("getAztecVerifierParameters", () => {
     ).rejects.toThrow(/bound to aztec_testnet/)
   })
 
-  // The Aztec library's bind commits to a user address and the contract's network, nothing else,
-  // so no network passed here can make another bind verify
+  test.each([
+    ["an address and custom data", { user_address: USER, custom_data: "order-42" }],
+    ["custom data without an address", { custom_data: "order-42" }],
+    ["the longest custom data", { user_address: USER, custom_data: "a".repeat(464) }],
+  ])("reads the vk for a proof that binds %s on an Aztec network", async (_, data) => {
+    await new ZKPassport("example.com").getAztecVerifierParameters({
+      proof: { ...proof, committedInputs: { bind: { data: { ...data, chain: "aztec_testnet" } } } },
+    })
+    expect(new Set(fetchedUrls)).toEqual(new Set(getCircuitUrls("aztec_testnet")))
+  })
+
+  // The Aztec library's bind commits to the contract's network and a user address, custom data of
+  // at most 464 bytes or both, so no network passed here can make another bind verify
   test.each([
     ["an address and no network", { user_address: USER }],
-    ["a network and no address", { chain: "aztec_testnet" }],
-    ["custom data", { user_address: USER, chain: "aztec_testnet", custom_data: "hi" }],
+    ["a network alone", { chain: "aztec_testnet" }],
+    [
+      "custom data longer than 464 bytes",
+      { user_address: USER, chain: "aztec_testnet", custom_data: "é".repeat(233) },
+    ],
     [
       "an address shorter than an Aztec address",
       { user_address: "0x1122", chain: "aztec_testnet" },
