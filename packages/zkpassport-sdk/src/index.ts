@@ -24,6 +24,7 @@ import {
   serializeAllowedVerificationMethods,
   isCircuitVersion,
   isVerificationMethodAllowed,
+  normalizeHostname,
   type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
@@ -269,30 +270,12 @@ export class ZKPassport {
   private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
   //private wasmVerifierInit: boolean = false
 
-  private normalizeDomain(domain: string) {
-    return (
-      domain
-        .trim()
-        // Remove protocol
-        .replace(/^https?:\/\//, "")
-        // Remove trailing slash and anything after it
-        .replace(/\/[^/]*$/, "")
-        // Remove port
-        .replace(/:[0-9]+/, "")
-        // Remove query parameters
-        .replace(/\?.*$/, "")
-        // Remove hash
-        .replace(/#.*$/, "")
-        .toLowerCase()
-    )
-  }
-
   constructor(_domain?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
-    this.domain = this.normalizeDomain(_domain || window.location.hostname)
+    this.domain = normalizeHostname(_domain || window.location.hostname)
   }
 
   private async handleResult(topic: string) {
