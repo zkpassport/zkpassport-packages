@@ -2,7 +2,7 @@
 pub global VK_FIELDS: u32 = 115;
 pub global PROOF_FIELDS: u32 = 458;
 
-// Public-input layout of a circuits 0.23.x outer proof — mirrors zkpassport-packages
+// Public-input layout of a supported circuits release's outer proof — mirrors zkpassport-packages
 // Constants.sol / lib/Types.sol. For outer_count_K: total length = K + 6, param commitments = K - 3.
 pub(crate) global PI_CERT_ROOT: u32 = 0;
 pub(crate) global PI_CIRCUIT_ROOT: u32 = 1;
