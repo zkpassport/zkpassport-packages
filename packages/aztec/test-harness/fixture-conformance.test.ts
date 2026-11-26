@@ -181,8 +181,23 @@ test("the age fixture's param commitments are the age anchor and its bind commit
   expect(params.toSorted()).toEqual(expected.toSorted())
 })
 
-test("the age fixture is bound to the BIND_ACCOUNT anchor", () => {
-  expect(BigInt(ageFixture.bindAddress)).toBe(BigInt(anchors.BIND_ACCOUNT as string))
+// An Aztec address is the x coordinate of a Grumpkin point (y^2 = x^3 - 17), and a note can only be
+// encrypted to an address that is one
+test("the age fixture is bound to a valid Aztec address", () => {
+  const p = 21888242871839275222246405745257275088548364400416034343698204186575808495617n
+  const pow = (base: bigint, exponent: bigint): bigint => {
+    let result = 1n
+    for (let b = base % p, e = exponent; e > 0n; e >>= 1n, b = (b * b) % p) {
+      if (e & 1n) {
+        result = (result * b) % p
+      }
+    }
+    return result
+  }
+
+  const x = BigInt(ageFixture.bindAddress)
+  const ySquared = (((x * x) % p) * x - 17n + p) % p
+  expect(pow(ySquared, (p - 1n) / 2n)).toBe(1n)
 })
 
 test("proof fixtures were generated from the pinned circuits commit", () => {
