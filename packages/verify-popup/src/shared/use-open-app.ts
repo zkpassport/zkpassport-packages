@@ -76,9 +76,10 @@ export function useOpenApp(
     // The App Clip is invoked by its https link, never a custom scheme. Browsers without the App
     // Clip card try the full app instead, as from /r. So does the /c page itself: there the link is
     // this page, and the clip didn't take over (iOS offers the clip on this page through its banner)
-    if (canOpenAppClip(requestUrl) && !isSamePage(requestUrl, window.location.href)) {
+    const appClipPage = sessionId ? appClipPageFor(requestUrl, sessionId) : requestUrl
+    if (canOpenAppClip(requestUrl) && !isSamePage(appClipPage, window.location.href)) {
       if (sessionId) {
-        leaveWithoutAsking(appClipPageFor(requestUrl, sessionId))
+        leaveWithoutAsking(appClipPage)
         return
       }
       openAppClipPage(requestUrl)
