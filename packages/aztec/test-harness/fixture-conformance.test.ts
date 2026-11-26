@@ -2,8 +2,8 @@
 // - the commitment anchors in fixtures.nr to the SDK's conformance vectors,
 // - FIXTURE_PUBLIC_INPUTS to the public inputs of the checked-in disclose proof fixture,
 // - the proof fixtures themselves to the circuits submodule commit they were generated from,
-// - the App Attest constants in app_attest.nr, and the registry's empty revocation root, to the L1
-//   verifier's.
+// - app_attest.nr to what generate-app-attest.ts makes of the L1 verifier's AppAttest library,
+//   and the registry's empty revocation root to the L1 verifier's.
 // The sanctions anchors are checked by zkpassport-sdk's tests/aztec-query-conformance.test.ts,
 // against the SDK's query builders.
 //
@@ -15,15 +15,17 @@ import { fileURLToPath } from "url"
 import vectors from "../../zkpassport-utils/conformance/vectors.json"
 import ageFixture from "./fixtures/outer_count_5_age.json"
 import discloseFixture from "./fixtures/outer_count_4_disclose.json"
+import {
+  APP_ATTEST_NR,
+  CONSTANTS_SOL,
+  renderAppAttestNr,
+  solidityBytes32Constants,
+} from "./generate-app-attest"
 import { evaluateExpressions, parseNoirFile } from "./vendor/constants-generator"
 
 const FIXTURES_NR = fileURLToPath(new URL("../noir/core/src/fixtures.nr", import.meta.url))
-const APP_ATTEST_NR = fileURLToPath(new URL("../noir/core/src/app_attest.nr", import.meta.url))
 const REGISTRY_TYPES_NR = fileURLToPath(
   new URL("../noir/registry_contract/src/types.nr", import.meta.url),
-)
-const CONSTANTS_SOL = fileURLToPath(
-  new URL("../../registry-contracts/src/lib/Constants.sol", import.meta.url),
 )
 // name => decimal string (or an array of them, for array globals)
 const noirGlobals = (path: string) =>
@@ -92,18 +94,7 @@ test.each([
   expect(hex(anchor)).toBe(namedVector(name).commitment)
 })
 
-// A library's `bytes32 constant NAME = 0x...;` declarations, by name
-function solidityBytes32Constants(source: string, library: string): Record<string, string> {
-  const body = source.match(new RegExp(`library\\s+${library}\\s*\\{([^}]*)\\}`))?.[1]
-  if (body === undefined) throw new Error(`no library ${library} in Constants.sol`)
-  const code = body.replace(/\/\/.*$/gm, "")
-  const constants = [
-    ...code.matchAll(/bytes32\s+constant\s+(\w+)\s*=\s*(0x[0-9a-fA-F]{64})\s*;/g),
-  ].map(([, name, value]) => [name, fieldHex(value)])
-  // A declaration in any other form would otherwise go unchecked
-  expect(constants).toHaveLength(code.match(/\bconstant\b/g)?.length ?? 0)
-  return Object.fromEntries(constants)
-}
+const constantsSol = readFileSync(CONSTANTS_SOL, "utf8")
 
 const appAttest = Object.fromEntries(
   Object.entries(noirGlobals(APP_ATTEST_NR)).map(([name, value]) => [
@@ -112,7 +103,26 @@ const appAttest = Object.fromEntries(
   ]),
 )
 
-const l1AppAttest = solidityBytes32Constants(readFileSync(CONSTANTS_SOL, "utf8"), "AppAttest")
+const l1AppAttest = Object.fromEntries(
+  solidityBytes32Constants(constantsSol, "AppAttest").map(({ name, value }) => [
+    name,
+    fieldHex(value),
+  ]),
+)
+
+// On failure, regenerate: `bun packages/aztec/test-harness/generate-app-attest.ts`
+test("app_attest.nr is generated from the L1 verifier's AppAttest library", () => {
+  expect(readFileSync(APP_ATTEST_NR, "utf8")).toBe(renderAppAttestNr(constantsSol))
+})
+
+test("the generator rejects an AppAttest declaration it cannot read", () => {
+  const unreadable = constantsSol.replace(
+    /bytes32 constant IOS_APP_ID_HASH = (0x[0-9a-f]{64});/,
+    "bytes32 constant IOS_APP_ID_HASH = bytes32($1);",
+  )
+  expect(unreadable).not.toBe(constantsSol)
+  expect(() => renderAppAttestNr(unreadable)).toThrow(/IOS_APP_ID_HASH/)
+})
 
 test("app_attest.nr holds the L1 verifier's AppAttest constants", () => {
   expect(Object.keys(l1AppAttest).length).toBeGreaterThan(0)
