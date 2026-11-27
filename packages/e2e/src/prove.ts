@@ -3,6 +3,7 @@ import { Noir, type CompiledCircuit, type InputMap } from "@noir-lang/noir_js"
 import type { RegistryClient } from "@zkpassport/registry"
 import {
   AsyncOrderedMT,
+  evaluateOPRF,
   extractTBS,
   getAgeCircuitInputs,
   getBindCircuitInputs,
@@ -18,6 +19,7 @@ import {
   getIntegrityCheckCircuitInputs,
   getNumberOfPublicInputs,
   getOprfAuthCircuitInputs,
+  getOprfRegistrationCircuitInputs,
   getOuterCircuitInputs,
   getOuterCircuitName,
   getOuterCircuitProof,
@@ -33,6 +35,8 @@ import {
   randomBlindingFactor,
   SanctionsBuilder,
   TargetExistsError,
+  type BabyJubJubPoint,
+  type OPRFEvaluatorAuth,
   type OuterCircuitProof,
   type PackagedCertificate,
   type PackagedCertificatesFile,
@@ -382,6 +386,63 @@ export async function proveOprfAuthProofs({
       proofs: [...subproofs, facematch, oprfAuth],
       blindedUniqueIdentifier: `0x${blindedX}${blindedY}`,
     }
+  } finally {
+    await prover.destroy()
+  }
+}
+
+/**
+ * Prove an oprf_registration proof per auth secret, as the app does for OPRF v2 registration and
+ * rotation: the passport's private nullifier evaluated under the mock registration key
+ * `registrationKey` gives I, and each proof opens a commitment to one auth secret. Shares the
+ * salts of `proveSubproofs`, so the proofs open the same passport commitment as its base proofs.
+ */
+export async function proveOprfRegistrationProofs({
+  passport,
+  registrationKey,
+  authSecrets,
+  circuit,
+  version,
+}: {
+  passport: PassportViewModel
+  registrationKey: bigint
+  authSecrets: bigint[]
+  circuit: PackagedCircuit
+  version: string
+}): Promise<{
+  registrationId: BabyJubJubPoint
+  registrationPublicKey: BabyJubJubPoint
+  registrations: { authCommitment: bigint; proof: ProofResult }[]
+}> {
+  const salts = getIntegrityToDisclosureSalts(SALT)
+  const { privateNullifier } = await getOprfAuthCircuitInputs(passport, salts, 1n)
+  const { oprfProof, publicKey } = await evaluateOPRF(
+    privateNullifier,
+    randomBlindingFactor(),
+    // The mock evaluation needs no node auth
+    undefined as unknown as OPRFEvaluatorAuth,
+    { mock: { secretKey: registrationKey } },
+  )
+
+  const prover = await startProver(circuit.bb_version)
+  try {
+    let registrationId: BabyJubJubPoint | undefined
+    const registrations = []
+    for (const authSecret of authSecrets) {
+      const built = await getOprfRegistrationCircuitInputs(passport, salts, oprfProof, authSecret)
+      registrationId = built.registrationId
+      registrations.push({
+        authCommitment: built.authCommitment,
+        proof: {
+          proof: await proveCircuit(prover, circuit, built.inputs),
+          vkeyHash: circuit.vkey_hash,
+          version: version as ProofResult["version"],
+          name: circuit.name,
+        },
+      })
+    }
+    if (!registrationId) throw new Error("No auth secrets to register")
+    return { registrationId, registrationPublicKey: publicKey, registrations }
   } finally {
     await prover.destroy()
   }

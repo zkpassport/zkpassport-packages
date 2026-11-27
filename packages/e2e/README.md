@@ -79,3 +79,15 @@ version.
 ```sh
 bun scripts/oprf-verify-request.ts <output.json>
 ```
+
+`scripts/oprf-v2-requests.ts` writes the request bodies the OPRF nodes send to the proof verifier's
+`/oprf/v2/{identify,register,query,rotate}` routes, one JSON file per step, plus `meta.json`. The
+oprf_registration proofs evaluate the OPRF under a fixed mock registration key, so run the verifier
+with the `OPRF_REGISTRATION_PUBLIC_KEY` from `meta.json` and call it with `?devmode=true`.
+`OPRF_REGISTRATION_CIRCUITS_DIR` is a circuits checkout's `target/packaged` holding
+oprf_registration, which is not on the testnet CDN yet; the verifier needs the same circuits as its
+`CIRCUITS_DIR`. `CIRCUIT_VERSION` sets the version of the other circuits, 0.23.0 by default.
+
+```sh
+OPRF_REGISTRATION_CIRCUITS_DIR=<circuits checkout>/target/packaged bun scripts/oprf-v2-requests.ts <output dir>
+```
