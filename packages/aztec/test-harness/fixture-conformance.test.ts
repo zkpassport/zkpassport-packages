@@ -38,6 +38,8 @@ const namedVector = (name: string) => vectors.vectors.find((v) => v.name === nam
 test("every constant in fixtures.nr is checked here", () => {
   expect(Object.keys(anchors).sort()).toEqual([
     "AGE_18_COMMITMENT",
+    "ATTESTED_ID_ANDROID_COMMITMENT",
+    "ATTESTED_ID_IOS_COMMITMENT",
     "BIND_ACCOUNT",
     "BIND_BASE_COMMITMENT",
     "BIND_COMMITMENT",
@@ -88,6 +90,8 @@ test.each([
   ["FACE_MATCH_IOS_STRICT_COMMITMENT", "facematch_ios_strict"],
   ["FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT", "facematch_ios_app_clip_regular"],
   ["FACE_MATCH_ANDROID_STRICT_COMMITMENT", "facematch_android_strict"],
+  ["ATTESTED_ID_IOS_COMMITMENT", "attested_id_ios"],
+  ["ATTESTED_ID_ANDROID_COMMITMENT", "attested_id_android"],
 ])("%s matches the published %s vector", (anchor, name) => {
   expect(hex(anchor)).toBe(namedVector(name).commitment)
 })

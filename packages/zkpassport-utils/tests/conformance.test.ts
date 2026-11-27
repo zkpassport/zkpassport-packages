@@ -10,7 +10,10 @@ import { getIdFromChain } from "../src/utils"
 import { getCountryParameterCommitment } from "../src/circuits/country"
 import { getDateParameterCommitment } from "../src/circuits/date"
 import { getDiscloseParameterCommitment } from "../src/circuits/disclose"
-import { getFacematchParameterCommitment } from "../src/circuits/facematch"
+import {
+  getAttestedIdParameterCommitment,
+  getFacematchParameterCommitment,
+} from "../src/circuits/facematch"
 
 type Vector = { name: string; proofType: string; params: Record<string, any>; commitment: string }
 const byType = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.proofType, v]))
@@ -21,6 +24,8 @@ describe("Conformance vectors", () => {
   test("every vector is checked here", () => {
     expect(vectors.vectors.map((v) => v.proofType).sort()).toEqual([
       "age",
+      "attested_id",
+      "attested_id",
       ...Array<string>(11).fill("bind"),
       "birthdate",
       "disclose",
@@ -135,6 +140,21 @@ describe("Conformance vectors", () => {
       expect(hex(result)).toEqual(commitment)
     },
   )
+
+  // A camera-read ID's device attestation from ZKPassport's iOS and Android apps: the strict face
+  // match parameters, committed under the attested ID proof type
+  test.each(["attested_id_ios", "attested_id_android"])("%s", async (name) => {
+    const { params, commitment } = byName[name]
+    const result = await getAttestedIdParameterCommitment(
+      BigInt(params.rootKeyLeaf),
+      BigInt(params.environment),
+      BigInt(params.appIdHash),
+      BigInt(params.facematchMode),
+      BigInt(params.integrityPublicKeyHash),
+      BigInt(params.revocationRoot),
+    )
+    expect(hex(result)).toEqual(commitment)
+  })
 
   test.each([
     ["birthdate", ProofType.BIRTHDATE],

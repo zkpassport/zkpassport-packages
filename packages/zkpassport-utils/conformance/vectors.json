@@ -215,6 +215,32 @@
         "revocationRoot": "0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525"
       },
       "commitment": "0x1ec0db9cde1f07c72a2fb5ce008c18bd9ad150477fef05665aba7e09bb5dfa11"
+    },
+    {
+      "name": "attested_id_ios",
+      "proofType": "attested_id",
+      "params": {
+        "rootKeyLeaf": "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
+        "environment": 1,
+        "appIdHash": "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b",
+        "integrityPublicKeyHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "facematchMode": 2,
+        "revocationRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "commitment": "0x278a2c9e6cce77d0b89a9e961c6b4f2d154155c78585dc951bd11c61abe674f3"
+    },
+    {
+      "name": "attested_id_android",
+      "proofType": "attested_id",
+      "params": {
+        "rootKeyLeaf": "0x16700a2d9168a194fc85f237af5829b5a2be05b8ae8ac4879ada34cf54a9c211",
+        "environment": 1,
+        "appIdHash": "0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d",
+        "integrityPublicKeyHash": "0x12e3dc7cc8fec0205b51ff21825630865028f3be5bc64a6eec9ee5e71221319f",
+        "facematchMode": 2,
+        "revocationRoot": "0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525"
+      },
+      "commitment": "0x2c1191ed307fa5424b06b511082cf6df074c3777c0cb04b15cea10a9c19fc4be"
     }
   ]
 }

@@ -11,9 +11,10 @@ Example Aztec contracts that use them, and an end-to-end test on a local Aztec n
 [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples).
 
 The verifier accepts outer proofs of ZKPassport circuits 0.23.x made with `bb` 6.0.0, the version the
-Aztec 6.0.0 protocol runs. It only accepts proofs of a passport or ID card read from its chip
-(verification method 100). Proofs of other documents, such as Aadhaar or a device-attested camera
-read, need checks that the L1 verifier runs and this library does not, so it rejects them.
+Aztec 6.0.0 protocol runs: proofs of a passport or ID card read from its chip (verification method
+100, tier 1) with `verify_zkpassport_proof`, and of an ID read by the camera of ZKPassport's app and
+attested by the device (methods 200 and 201, tier 2) with `verify_device_attested_proof`. Proofs of
+other documents, such as Aadhaar (101), come from other outer circuits, which it doesn't verify yet.
 
 ## Workspace Layout
 
@@ -23,8 +24,8 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 | Package | Type | Purpose | Key dependencies |
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions/Android attestation revocation) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_attestation_revocation_root_accepted`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
-| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), ZKPassport's app ids and the attestation root keys a face match is checked against (`app_attest.nr`, the L1 verifier's `AppAttest` constants), a face match's parameters, the parser for their capsule payload and the L1 verifier's policy for them (`face_match.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs, and `face_match_commitment`, which computes the circuits 0.23.0 face match commitment itself. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
-| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `app_attest`, `commitments`, `constants`, `disclosed_data`, `face_match` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose, sanctions and face match payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), ZKPassport's app ids and the attestation root keys a face match is checked against (`app_attest.nr`, the L1 verifier's `AppAttest` constants), a face match's parameters, the parser for their capsule payload and the L1 verifier's policies for them as a face match and as a device attestation (`face_match.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs, and `face_match_commitment` and `attested_id_commitment`, which compute the circuits 0.23.0 face match and attested ID commitments themselves. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `app_attest`, `commitments`, `constants`, `disclosed_data`, `face_match` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` for tier 1 proofs (which also loads and checks the disclose, sanctions and face match payloads) and `verify_device_attested_proof` for tier 2, each with `_for_user` and `_with_registry` variants, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crate (upstream noir-contracts style):
@@ -222,6 +223,45 @@ The ZKPassport SDK only makes a salted unique identifier with a strict face matc
 requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
 `strict_face_match()`. The library doesn't pair the two itself, as L1 doesn't.
 
+### IDs read by camera (tier 2)
+
+An ID without a chip can be read by the camera of ZKPassport's app, which attests the read on the
+device: App Attest on iOS (method 200), key attestation and Play Integrity on Android (201). Its
+proof is an `outer_attested_id_count_N` proof, in which one attested ID proof stands in for the
+chip's three. `verify_device_attested_proof` verifies it for the same `Query` as
+`verify_zkpassport_proof`, with `_for_user` and `_with_registry` variants:
+
+```noir
+global SERVICE: ServiceConfig = ServiceConfig::new("example.com").allow_tier(VERIFICATION_TIER_DEVICE_ATTESTED);
+
+let query = Query::new().age_min(18);
+let verified = verify_device_attested_proof_for_user(self.context, self.msg_sender(), user, SERVICE, query);
+```
+
+- **Opting in.** `ServiceConfig` lists the verification tiers and methods it accepts, as the L1
+  `PolicyEvaluator`'s `allowedVerificationMethods` does: `allow_tier(1)`, `allow_tier(2)`, or
+  `allow_method` with 100, 101, 200 or 201. With none listed it accepts tier 1, so a config made
+  only with `ServiceConfig::new` doesn't accept a camera read. A listed tier or method replaces
+  that default: `allow_tier(2)` alone accepts no chip read. Each entry point checks the proof's
+  method against it.
+- **The attestation.** The proof commits the device attestation first among its param commitments,
+  under its own proof type, with the six parameters of a face match. The client stashes them in
+  `zkpassport::constants::ATTESTED_ID_CAPSULE_SLOT` (`= 5`). The library checks them as the L1
+  verifier's `AttestedId.isValid` does: made in production with a strict face match, by
+  ZKPassport's iOS app (not the App Clip) under Apple's root key with no integrity key or
+  revocation root, or by its Android app under one of Google's root keys with its Play Integrity
+  key and a revocation root the registry accepts. `VerifiedProof.attestation` returns them, and
+  `VerifiedProof.verification_method` says which method the proof was made under.
+- **Face match.** The attestation covers a strict face match, so a tier 2 proof has no face match
+  proof of its own. As L1's `isFaceMatchVerified` does, the attestation meets `strict_face_match()`
+  and is returned in `VerifiedProof.face_match`; a query with `face_match()` (regular) fails to
+  compile.
+- **One function per tier.** The two tiers' proofs have different outer circuits and public input
+  counts, fixed when a contract compiles, so a contract that accepts both has a function for each.
+- **Unique identifier.** A passport read by camera has another unique identifier than the same
+  passport read by chip: the chip's comes from its signed data, the camera read's from the MRZ.
+  A contract that accepts both tiers sees a passport once per tier.
+
 ## Trust considerations
 
 1. **ZKPassportRegistry is the source of truth.** Certificate, circuit, sanctions and Android
@@ -283,11 +323,15 @@ requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
    window before that date. Apps that need recent screening set a short `validity_period`.
    An Android face match's revocation root is the exception: as on L1, it must be accepted when
    the transaction lands, not at the proof's date.
-9. **Face matches are checked against attestation keys and app ids pinned in the library.**
-   `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants, which
+9. **Face matches and device attestations are checked against attestation keys and app ids pinned
+   in the library.** `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants, which
    `test-harness/fixture-conformance.test.ts` holds it to. The registry only checks an Android
-   face match's revocation root. A new ZKPassport app or attestation root key takes a library
+   attestation's revocation root. A new ZKPassport app or attestation root key takes a library
    update, as it takes a verifier update on L1.
+10. **A camera read is attested by ZKPassport's app, not signed by the document's issuer.** Tier 2
+    trusts the app and the platform's attestation that it read the document's printed data and
+    matched its holder's face; nothing chains to the issuing state. An app that needs issuer-signed
+    data keeps the default, tier 1.
 
 ## Running the tests
 

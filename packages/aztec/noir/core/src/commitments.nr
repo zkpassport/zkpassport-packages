@@ -1,5 +1,6 @@
 use crate::constants::{
-    BIND_ENTRIES_LENGTH, COUNTRY_LIST_LENGTH, CUSTOM_DATA_MAX_LENGTH, SECONDS_BETWEEN_1900_AND_1970,
+    BIND_ENTRIES_LENGTH, COUNTRY_LIST_LENGTH, CUSTOM_DATA_MAX_LENGTH, PROOF_TYPE_ATTESTED_ID,
+    SECONDS_BETWEEN_1900_AND_1970,
 };
 use bind_lib::calculate_param_commitment as bind_param_commitment;
 use compare_age_lib::calculate_param_commitment as age_param_commitment;
@@ -78,8 +79,49 @@ pub fn face_match_commitment(
     facematch_mode: u8,
     revocation_root: Field,
 ) -> Field {
+    attestation_commitment(
+        PROOF_TYPE_FACEMATCH,
+        root_key_leaf,
+        environment,
+        app_id_hash,
+        integrity_public_key_hash,
+        facematch_mode,
+        revocation_root,
+    )
+}
+
+/// attested ID: the device attestation of a camera-read ID, committed as a face match is but under
+/// PROOF_TYPE_ATTESTED_ID, so the two can't stand in for each other.
+pub fn attested_id_commitment(
+    root_key_leaf: Field,
+    environment: u8,
+    app_id_hash: Field,
+    integrity_public_key_hash: Field,
+    facematch_mode: u8,
+    revocation_root: Field,
+) -> Field {
+    attestation_commitment(
+        PROOF_TYPE_ATTESTED_ID,
+        root_key_leaf,
+        environment,
+        app_id_hash,
+        integrity_public_key_hash,
+        facematch_mode,
+        revocation_root,
+    )
+}
+
+fn attestation_commitment(
+    proof_type: u8,
+    root_key_leaf: Field,
+    environment: u8,
+    app_id_hash: Field,
+    integrity_public_key_hash: Field,
+    facematch_mode: u8,
+    revocation_root: Field,
+) -> Field {
     let params = [
-        PROOF_TYPE_FACEMATCH as Field,
+        proof_type as Field,
         6,
         root_key_leaf,
         environment as Field,

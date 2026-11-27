@@ -30,6 +30,8 @@ const fixture = JSON.parse(
 ) as AgeFixture
 
 const USER = `0x${"11".repeat(32)}`
+// The tier 2 outer circuit answering the same {age, bind} request as the fixture
+const ATTESTED_CIRCUIT = "outer_attested_id_count_3"
 const bare = (field: string) => field.replace(/^0x/, "").padStart(64, "0")
 const hexField = (field: string | number) =>
   `0x${(typeof field === "number" ? field.toString(16) : bare(field)).padStart(64, "0")}`
@@ -46,9 +48,12 @@ describe("getAztecVerifierParameters", () => {
 
   let originalFetch: typeof globalThis.fetch
   let fetchedUrls: string[]
+  // The outer circuit the stubbed circuits host serves the fixture's vk as
+  let servedCircuit: string
 
   beforeEach(async () => {
     const circuitRoot = await calculateCircuitRoot({ hashes: [fixture.vkeyHashPoseidon2] })
+    servedCircuit = fixture.circuit
     originalFetch = globalThis.fetch
     fetchedUrls = []
     globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -58,11 +63,11 @@ describe("getAztecVerifierParameters", () => {
         return Response.json({
           version: fixture.circuitVersion,
           root: circuitRoot,
-          circuits: { [fixture.circuit]: { hash: fixture.vkeyHashPoseidon2 } },
+          circuits: { [servedCircuit]: { hash: fixture.vkeyHashPoseidon2 } },
         })
       }
       return Response.json({
-        name: fixture.circuit,
+        name: servedCircuit,
         hash: fixture.vkeyHashPoseidon2,
         vkey_hash: fixture.vkeyHashPoseidon2,
         noir_version: "1.0.0",
@@ -134,6 +139,89 @@ describe("getAztecVerifierParameters", () => {
     integrityPubkeyHash: "0x00",
     mode: "strict",
   }
+
+  // The fixture as a camera-read ID's proof: the attested ID commitment first among its param
+  // commitments, and verification method 200. The SDK reads the public inputs, it doesn't verify them.
+  const attestedProof: ProofResult = {
+    name: ATTESTED_CIRCUIT,
+    version: fixture.circuitVersion,
+    vkeyHash: fixture.vkeyHashPoseidon2,
+    proof: [
+      ...fixture.publicInputs.slice(0, 5),
+      "0x2a77",
+      ...fixture.publicInputs.slice(5, -1),
+      hexField(200),
+      ...fixture.proof,
+    ]
+      .map(bare)
+      .join(""),
+    committedInputs: { attested_id_ios: iosFacematch },
+  }
+
+  test("adds the attested ID capsule of a camera-read ID's proof, and sizes its proof capsule", async () => {
+    servedCircuit = ATTESTED_CIRCUIT
+
+    const { capsules } = await new ZKPassport("example.com").getAztecVerifierParameters({
+      proof: attestedProof,
+      network: "aztec",
+    })
+
+    expect(capsules[0].slot).toEqual(1)
+    expect(capsules[0].fields).toHaveLength(586)
+    expect(capsules[0].fields.slice(115 + 458, 115 + 458 + 12)).toEqual(
+      [
+        ...fixture.publicInputs.slice(0, 5),
+        "0x2a77",
+        ...fixture.publicInputs.slice(5, -1),
+        hexField(200),
+      ].map(hexField),
+    )
+    expect(capsules.slice(1)).toEqual([
+      {
+        slot: 5,
+        fields: [
+          hexField(APPLE_APP_ATTEST_ROOT_KEY_HASH),
+          hexField(1),
+          hexField(ZKPASSPORT_IOS_APP_ID_HASH),
+          hexField(0),
+          hexField(2),
+          hexField(0),
+        ],
+      },
+    ])
+  })
+
+  test("reads an Android camera read's attestation", async () => {
+    servedCircuit = ATTESTED_CIRCUIT
+
+    const androidAttestation: FacematchCommittedInputs = {
+      ...iosFacematch,
+      rootKeyLeaf: GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
+      appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
+      integrityPubkeyHash: "0x1234",
+      revocationRoot: "0x5678",
+    }
+
+    const { capsules } = await new ZKPassport("example.com").getAztecVerifierParameters({
+      proof: { ...attestedProof, committedInputs: { attested_id_android: androidAttestation } },
+      network: "aztec",
+    })
+
+    expect(capsules[1].slot).toEqual(5)
+    expect(capsules[1].fields[0]).toEqual(hexField(GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH))
+    expect(capsules[1].fields[5]).toEqual(hexField("0x5678"))
+  })
+
+  test("rejects a camera-read ID's proof without its attestation", async () => {
+    servedCircuit = ATTESTED_CIRCUIT
+
+    await expect(
+      new ZKPassport("example.com").getAztecVerifierParameters({
+        proof: { ...attestedProof, committedInputs: {} },
+        network: "aztec",
+      }),
+    ).rejects.toThrow(/attested ID/)
+  })
 
   test("adds a capsule for a face match, its parameters in the order the proof commits them", async () => {
     const { capsules } = await new ZKPassport("example.com").getAztecVerifierParameters({

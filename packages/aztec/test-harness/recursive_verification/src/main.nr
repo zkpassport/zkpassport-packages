@@ -21,7 +21,7 @@ fn main(
     disclosed_bytes: [u8; 90],
 ) {
     let expected = [disclose_commitment(disclose_mask, disclosed_bytes)];
-    let out = verify_outer_proof_core::<K>(
+    let out = verify_outer_proof_core(
         verification_key,
         proof,
         public_inputs,

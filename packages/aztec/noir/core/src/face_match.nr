@@ -2,8 +2,11 @@ use crate::app_attest::{
     ANDROID_APP_ID_HASH, ANDROID_INTEGRITY_PUBLIC_KEY_HASH, APPLE_ROOT_KEY_HASH,
     GOOGLE_ECDSA_ROOT_KEY_HASH, GOOGLE_RSA_ROOT_KEY_HASH, IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
 };
-use crate::commitments::face_match_commitment;
-use crate::constants::APP_ATTEST_ENV_PRODUCTION;
+use crate::commitments::{attested_id_commitment, face_match_commitment};
+use crate::constants::{
+    APP_ATTEST_ENV_PRODUCTION, FACE_MATCH_MODE_STRICT, VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+    VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+};
 
 /// What a face match proof commits to: the device attestation it was made under, and the face
 /// match mode.
@@ -27,6 +30,19 @@ impl FaceMatch {
     /// The face match's parameter commitment, as the proof carries it.
     pub fn commitment(self) -> Field {
         face_match_commitment(
+            self.root_key_leaf,
+            self.environment,
+            self.app_id_hash,
+            self.integrity_public_key_hash,
+            self.mode,
+            self.revocation_root,
+        )
+    }
+
+    /// The commitment of the same parameters as an attested ID entry, which a camera-read ID's
+    /// proof carries first.
+    pub fn attested_id_commitment(self) -> Field {
+        attested_id_commitment(
             self.root_key_leaf,
             self.environment,
             self.app_id_hash,
@@ -100,6 +116,50 @@ pub fn assert_face_match_policy(face_match: FaceMatch, mode: u8) {
     }
 }
 
+/// Fails unless the L1 verifier would accept `attestation` as the attested ID entry of a proof
+/// made under `method`, short of an Android attestation's revocation root, which the registry
+/// checks: made in production with a strict face match, and for 200 by ZKPassport's iOS app (not
+/// the App Clip) under Apple's App Attest root key with no integrity key or revocation root, for
+/// 201 by ZKPassport's Android app under one of Google's root keys with ZKPassport's Play
+/// Integrity key.
+pub fn assert_attested_id_policy(attestation: FaceMatch, method: Field) {
+    assert(
+        attestation.environment == APP_ATTEST_ENV_PRODUCTION,
+        "attested ID not made in production",
+    );
+    assert(attestation.mode == FACE_MATCH_MODE_STRICT, "attested ID face match not strict");
+
+    if method == VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS {
+        assert(
+            attestation.root_key_leaf == APPLE_ROOT_KEY_HASH,
+            "attested ID root key not Apple's App Attest root key",
+        );
+        assert(
+            attestation.app_id_hash == IOS_APP_ID_HASH,
+            "attested ID app id not ZKPassport's iOS app",
+        );
+        assert(
+            attestation.integrity_public_key_hash == 0,
+            "iOS attested ID commits an integrity key",
+        );
+        assert(attestation.revocation_root == 0, "iOS attested ID commits a revocation root");
+    } else {
+        assert(
+            method == VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+            "not a device-attested verification method",
+        );
+        assert(attestation.is_android(), "attested ID root key not one of Google's root keys");
+        assert(
+            attestation.app_id_hash == ANDROID_APP_ID_HASH,
+            "attested ID app id not ZKPassport's Android app",
+        );
+        assert(
+            attestation.integrity_public_key_hash == ANDROID_INTEGRITY_PUBLIC_KEY_HASH,
+            "Android attested ID not under ZKPassport's Play Integrity key",
+        );
+    }
+}
+
 mod test {
     use crate::app_attest::{
         ANDROID_APP_ID_HASH, ANDROID_INTEGRITY_PUBLIC_KEY_HASH, APPLE_ROOT_KEY_HASH,
@@ -108,9 +168,14 @@ mod test {
     };
     use crate::constants::{
         APP_ATTEST_ENV_PRODUCTION, FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT,
+        VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
+        VERIFICATION_METHOD_ICAO_CHIP,
     };
-    use crate::face_match::{assert_face_match_policy, FaceMatch, parse_face_match_payload};
+    use crate::face_match::{
+        assert_attested_id_policy, assert_face_match_policy, FaceMatch, parse_face_match_payload,
+    };
     use crate::fixtures::{
+        ATTESTED_ID_ANDROID_COMMITMENT, ATTESTED_ID_IOS_COMMITMENT,
         FACE_MATCH_ANDROID_STRICT_COMMITMENT, FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT,
         FACE_MATCH_IOS_STRICT_COMMITMENT,
     };
@@ -146,6 +211,72 @@ mod test {
         app_clip_regular.mode = FACE_MATCH_MODE_REGULAR;
         assert(app_clip_regular.commitment() == FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT);
         assert(android_strict().commitment() == FACE_MATCH_ANDROID_STRICT_COMMITMENT);
+    }
+
+    #[test]
+    fn commits_an_attested_id_like_the_conformance_anchors() {
+        assert(ios_strict().attested_id_commitment() == ATTESTED_ID_IOS_COMMITMENT);
+        assert(android_strict().attested_id_commitment() == ATTESTED_ID_ANDROID_COMMITMENT);
+        assert(ios_strict().attested_id_commitment() != ios_strict().commitment());
+    }
+
+    #[test]
+    fn attested_id_from_the_ios_app_accepted() {
+        assert_attested_id_policy(ios_strict(), VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+    }
+
+    #[test]
+    fn attested_id_from_the_android_app_accepted() {
+        assert_attested_id_policy(
+            android_strict(),
+            VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID,
+        );
+        let mut ecdsa = android_strict();
+        ecdsa.root_key_leaf = GOOGLE_ECDSA_ROOT_KEY_HASH;
+        assert_attested_id_policy(ecdsa, VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID);
+    }
+
+    #[test(should_fail_with = "attested ID app id not ZKPassport's iOS app")]
+    fn attested_id_from_the_app_clip_rejected() {
+        let mut app_clip = ios_strict();
+        app_clip.app_id_hash = IOS_APP_CLIP_APP_ID_HASH;
+        assert_attested_id_policy(app_clip, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+    }
+
+    #[test(should_fail_with = "attested ID face match not strict")]
+    fn attested_id_with_a_regular_face_match_rejected() {
+        let mut regular = ios_strict();
+        regular.mode = FACE_MATCH_MODE_REGULAR;
+        assert_attested_id_policy(regular, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+    }
+
+    #[test(should_fail_with = "attested ID not made in production")]
+    fn attested_id_outside_production_rejected() {
+        let mut development = ios_strict();
+        development.environment = 0;
+        assert_attested_id_policy(development, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+    }
+
+    #[test(should_fail_with = "attested ID root key not Apple's App Attest root key")]
+    fn android_attestation_under_the_ios_method_rejected() {
+        assert_attested_id_policy(android_strict(), VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+    }
+
+    #[test(should_fail_with = "attested ID root key not one of Google's root keys")]
+    fn ios_attestation_under_the_android_method_rejected() {
+        assert_attested_id_policy(ios_strict(), VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID);
+    }
+
+    #[test(should_fail_with = "iOS attested ID commits a revocation root")]
+    fn ios_attested_id_with_a_revocation_root_rejected() {
+        let mut revoking = ios_strict();
+        revoking.revocation_root = EMPTY_REVOCATION_ROOT;
+        assert_attested_id_policy(revoking, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS);
+    }
+
+    #[test(should_fail_with = "not a device-attested verification method")]
+    fn attested_id_under_a_chip_method_rejected() {
+        assert_attested_id_policy(android_strict(), VERIFICATION_METHOD_ICAO_CHIP);
     }
 
     fn ios_strict_payload() -> [Field; 6] {
