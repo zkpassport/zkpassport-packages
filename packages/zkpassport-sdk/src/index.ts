@@ -1092,6 +1092,8 @@ export class ZKPassport {
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
         uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
         queryResultErrors: queryResultErrorsFromPublicInputs,
+        rootTimestamp,
+        circuitRegistryRoot,
         verificationMethod: verificationMethodFromPublicInputs,
       } = await PublicInputChecker.checkPublicInputs(
         this.domain,
@@ -1125,11 +1127,33 @@ export class ZKPassport {
       }
       // Only proceed with the proof verification if the public inputs are correct
       if (verified) {
-        const circuitManifest = await registryClient.getCircuitManifest(undefined, {
-          // We assume all proofs have the same version
-          version: proofs[0].version,
-        })
+        // The public input checks accepted the root an outer proof commits to
+        const circuitManifest = circuitRegistryRoot
+          ? await registryClient.getCircuitManifest(circuitRegistryRoot)
+          : await registryClient.getCircuitManifest(undefined, {
+              // We assume all proofs have the same version
+              version: proofs[0].version,
+            })
+
+        if (!circuitRegistryRoot) {
+          const circuitRootCheck = await PublicInputChecker.checkCircuitRegistryRoot(
+            circuitManifest.root,
+            {},
+            devMode,
+            rootTimestamp,
+            originalQuery,
+            registryClient,
+          )
+          verified = circuitRootCheck.isCorrect
+          queryResultErrors = verified ? undefined : circuitRootCheck.queryResultErrors
+        }
+
         for (const proof of proofs) {
+          if (!verified) {
+            // Break the loop if the proof is not valid
+            // and don't bother checking the other proofs
+            break
+          }
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!
           const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
@@ -1149,11 +1173,6 @@ export class ZKPassport {
             })
           } else {
             verified = await bbVerifier.verify(proof, hostedPackagedCircuit)
-          }
-          if (!verified) {
-            // Break the loop if the proof is not valid
-            // and don't bother checking the other proofs
-            break
           }
         }
       }

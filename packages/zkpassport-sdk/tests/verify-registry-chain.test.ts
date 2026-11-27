@@ -19,31 +19,31 @@ describe("verify() registry chain", () => {
   const circuitVersion = "0.21.0"
   const outerEvmProofName = "outer_evm_3"
   const outerEvmCircuitHash = "0x0000000000000000000000000000000000000000000000000000000000000001"
-  const outerEvmProofFieldCount = 20
   const proofs: ProofResult[] = [
     {
       name: outerEvmProofName,
       version: circuitVersion,
       vkeyHash: outerEvmCircuitHash,
-      proof: "00".repeat(32 * outerEvmProofFieldCount),
+      proof: "00".repeat(32 * 20),
     },
   ]
   const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
 
+  let circuitRoot: string
   let originalFetch: typeof globalThis.fetch
   let fetchedUrls: string[]
   let publicInputCheckerSpy: ReturnType<typeof spyOn>
   let bbVerifierSpy: ReturnType<typeof spyOn>
 
   beforeEach(async () => {
-    const circuitRoot = await calculateCircuitRoot({ hashes: [outerEvmCircuitHash] })
+    circuitRoot = await calculateCircuitRoot({ hashes: [outerEvmCircuitHash] })
 
     originalFetch = globalThis.fetch
     fetchedUrls = []
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(input.toString()).href
       fetchedUrls.push(url)
-      if (url.includes("/by-version/")) {
+      if (url.includes("/by-root/")) {
         return Response.json({
           version: circuitVersion,
           root: circuitRoot,
@@ -73,6 +73,8 @@ describe("verify() registry chain", () => {
       uniqueIdentifier: "1",
       uniqueIdentifierType: NullifierType.NON_SALTED,
       queryResultErrors: {},
+      rootTimestamp: undefined,
+      circuitRegistryRoot: circuitRoot,
       verificationMethod: 100,
     })
     bbVerifierSpy = spyOn(bbVerifier, "createUltraHonkVerifier").mockResolvedValue({
@@ -91,7 +93,7 @@ describe("verify() registry chain", () => {
   function getChainUrls(chain: SupportedChain): string[] {
     const registryClient = createRegistryClient(chain)
     return [
-      registryClient.getUrlForCircuitManifestByVersion(circuitVersion),
+      registryClient.getUrlForCircuitManifestByRoot(circuitRoot),
       registryClient.getUrlForPackagedCircuits(outerEvmCircuitHash),
       registryClient.getRpcUrl(),
     ].map((url) => new URL(url).href)

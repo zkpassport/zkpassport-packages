@@ -50,6 +50,7 @@ export type QueryResultErrors = {
     commitment?: QueryResultError<string>
     date?: QueryResultError<string>
     certificate?: QueryResultError<string>
+    circuit?: QueryResultError<string>
     revocation?: QueryResultError<string>
     scope?: QueryResultError<string>
   }

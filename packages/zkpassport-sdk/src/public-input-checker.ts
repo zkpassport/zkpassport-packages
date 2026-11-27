@@ -69,6 +69,7 @@ import {
   getBindParameterCommitment,
   formatBoundData,
   getCircuitRegistryRootFromOuterProof,
+  normaliseHash,
   areDatesEqual,
   getBirthdateMinDateTimestamp,
   getBirthdateMaxDateTimestamp,
@@ -2562,6 +2563,7 @@ export class PublicInputChecker {
         )
       : undefined
     const bundleRootTimestamp = bundleDate ? Math.floor(bundleDate.getTime() / 1000) : undefined
+    let outerCircuitRegistryRoot: string | undefined
 
     for (const proof of sortedProofs!) {
       const proofData = getProofData(
@@ -2592,6 +2594,7 @@ export class PublicInputChecker {
         }
 
         const circuitRegistryRoot = getCircuitRegistryRootFromOuterProof(proofData)
+        outerCircuitRegistryRoot = normaliseHash(circuitRegistryRoot)
         const {
           isCorrect: isCorrectCircuitRegistryRoot,
           queryResultErrors: queryResultErrorsCircuitRegistryRoot,
@@ -4188,6 +4191,8 @@ export class PublicInputChecker {
       uniqueIdentifier,
       uniqueIdentifierType,
       queryResultErrors,
+      rootTimestamp: bundleRootTimestamp,
+      circuitRegistryRoot: outerCircuitRegistryRoot,
       verificationMethod: scheme,
     }
   }
