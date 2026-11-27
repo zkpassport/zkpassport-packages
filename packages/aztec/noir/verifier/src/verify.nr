@@ -319,9 +319,15 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// match reads the face match capsule.
 ///
 /// The proof capsule is `vk ‖ proof ‖ public inputs (K + 6) ‖ circuit version`: an outer_count_K
-/// proof of circuits 0.23.x, and the release it was made with, packed as `circuit_version` does.
-/// The proof's verification method must be the chip (100), and `config` must accept it, which
-/// a config does unless it lists only other methods.
+/// proof of circuits 0.23.x, or the outer_aadhaar_count_(K - 2) proof answering the same request,
+/// and the release it was made with, packed as `circuit_version` does. The proof's verification
+/// method must be the chip (100) or Aadhaar (101), and `config` must accept it, which a config
+/// does unless it lists only other methods; `allow_method(VERIFICATION_METHOD_ICAO_CHIP)` accepts
+/// chips only.
+///
+/// An Aadhaar passes only a query that asks for a `strict_face_match()`, as anyone with a copy of
+/// its QR code could otherwise prove with it, and that asks nothing about nationality, which an
+/// Aadhaar doesn't prove. It has another unique identifier than its holder's passport.
 ///
 /// In TXE and on a local network this is the local network registry, see
 /// `zkpassport_registry_contract::local_network_registry`. Use
@@ -400,12 +406,21 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32,
     );
     let parsed = out.parsed;
 
-    // Other tier 1 methods, such as Aadhaar, come from other outer circuits
     assert(
-        parsed.verification_method == VERIFICATION_METHOD_ICAO_CHIP,
+        (parsed.verification_method == VERIFICATION_METHOD_ICAO_CHIP)
+            | (parsed.verification_method == VERIFICATION_METHOD_UIDAI_AADHAAR),
         "unsupported verification method",
     );
     assert(config.accepts_method(parsed.verification_method), "verification method not allowed");
+    if parsed.verification_method == VERIFICATION_METHOD_UIDAI_AADHAAR {
+        // Whoever holds a copy of the QR code holds the photo the face match compares against,
+        // which only a strict face match's liveness checks stop
+        assert(
+            query.face_match_mode() == Option::some(FACE_MATCH_MODE_STRICT),
+            "an Aadhaar needs a strict face match",
+        );
+        assert(!query.asks_nationality(), "an Aadhaar proves no nationality");
+    }
 
     assert_proof_valid_now(
         context,
