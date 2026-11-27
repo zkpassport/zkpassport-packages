@@ -7,6 +7,7 @@
 //! salted values) and the common tail (scopes / nullifier_secret / oprf_proof).
 //! OPRF is out of scope: `nullifier_secret` = 0 with the zero proof.
 
+use crate::aztec_registry::{AZTEC_CHAIN_ID, AZTEC_TESTNET_CHAIN_ID};
 use crate::bytes::right_pad_with_zeros;
 use crate::commitments::{
     calculate_private_nullifier, hash_salt_dg1_dg2_hash_private_nullifier, normalize_dg2_hash,
@@ -583,6 +584,7 @@ fn chain_id(chain: &str) -> Result<u64, String> {
         "linea" => 59144,
         "world_chain" => 480,
         "robinhood" => 4663,
+        "aztec" => AZTEC_CHAIN_ID,
         "ethereum_sepolia" => 11155111,
         "base_sepolia" => 84532,
         "arbitrum_sepolia" => 421614,
@@ -592,6 +594,7 @@ fn chain_id(chain: &str) -> Result<u64, String> {
         "scroll_sepolia" => 534351,
         "linea_sepolia" => 59141,
         "world_chain_sepolia" => 4801,
+        "aztec_testnet" => AZTEC_TESTNET_CHAIN_ID,
         "local" => 31337,
         _ => return Err(format!("Unsupported chain: {chain}")),
     })
@@ -715,4 +718,33 @@ pub fn get_facematch_circuit_inputs(
     insert(&mut obj, "app_id", json!(right_pad_with_zeros(att.app_id.as_bytes(), FM_APP_ID_MAX_LEN)));
     insert(&mut obj, "facematch_mode", json!(att.facematch_mode));
     Ok(obj)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The bytes `formatBoundData` in @zkpassport/utils writes for the same bound data.
+    #[test]
+    fn bound_data_writes_an_aztec_networks_rollup_version_as_its_chain_id() {
+        let user_address = format!("0x{}", "ab".repeat(32));
+        let user_address_entry = [vec![1, 0, 32], vec![0xab; 32]].concat();
+        let bound_to = |chain: &str| {
+            format_bound_data(&BoundData {
+                user_address: Some(user_address.clone()),
+                chain: Some(chain.into()),
+                custom_data: None,
+            })
+            .unwrap()
+        };
+
+        assert_eq!(
+            bound_to("aztec_testnet"),
+            [user_address_entry.clone(), vec![2, 0, 4, 0x28, 0x7c, 0xb6, 0x46]].concat()
+        );
+        assert_eq!(
+            bound_to("aztec"),
+            [user_address_entry, vec![2, 0, 4, 0x7b, 0x6e, 0xd2, 0x98]].concat()
+        );
+    }
 }

@@ -96,10 +96,14 @@ Generated tables (never hand-edit): `curves_gen.rs`, `oids_gen.rs` — regenerat
   plan, legacy integrity-name fallback, and the single-SRS sizing rule
   (bb v5: one SRS per process, max circuit size, 500k floor). Returned in the
   FFI response when a `manifest` is supplied.
-- **Latest registry roots** (`latest_roots.rs`) — the JSON-RPC request for the
-  latest certificate, circuit and sanctions roots (port of `getLatestRoot` and the
-  endpoints in `@zkpassport/registry`) and the check of the reply. The runner
-  only sends the request. C ABI: `zkpassport_latest_roots_request`,
+- **Latest registry roots** (`latest_roots.rs`, `aztec_registry.rs`) — the JSON-RPC
+  requests for the latest certificate, circuit and sanctions roots (port of
+  `getLatestRoot` and the endpoints in `@zkpassport/registry`) and the check of the
+  replies. An EVM chain's Root Registry takes one request; ZKPassportRegistry on an
+  Aztec network (`aztec`, `aztec_testnet`) takes two, to the Aztec node. The runner
+  only sends the requests: it calls `zkpassport_latest_roots_step` with the replies
+  so far until it returns the roots. C ABI: `zkpassport_latest_roots_step`, and for
+  an EVM chain alone `zkpassport_latest_roots_request` and
   `zkpassport_parse_latest_roots`.
 - **WASM bindings** (`zkpassport-wasm`) — same JSON contract via wasm-bindgen
   for the browser prover (bb.js); builds for wasm32-unknown-unknown (1.1 MB).
