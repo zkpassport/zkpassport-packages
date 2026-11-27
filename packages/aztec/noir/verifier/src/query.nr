@@ -193,6 +193,13 @@ impl<let K: u32, let D: u32, let B: u32, let F: u32> Query<K, D, B, F> {
         self.face_match
     }
 
+    // Whether the query asks for a nationality in a list, or for it to be disclosed: only an
+    // exclusion can be met without proving one
+    pub(crate) fn asks_nationality(self) -> bool {
+        ((self.checks & CHECK_NATIONALITY_INCLUSION) != 0)
+            | ((self.disclosed_fields & FIELD_NATIONALITY) != 0)
+    }
+
     pub(crate) fn expected_commitments(
         self,
         disclosure: Option<Disclosure>,

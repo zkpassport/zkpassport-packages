@@ -191,6 +191,44 @@ describe("getAztecVerifierParameters", () => {
     ])
   })
 
+  // The fixture as an Aadhaar's proof of {face match, bind}: an outer_aadhaar_count_3 proof has the
+  // layout of an outer_count_5 one, with verification method 101
+  test("lays out an Aadhaar's proof capsule as a chip proof's, and adds its face match capsule", async () => {
+    servedCircuit = "outer_aadhaar_count_3"
+    const publicInputs = [...fixture.publicInputs.slice(0, -1), hexField(101)]
+
+    const { capsules } = await new ZKPassport("example.com").getAztecVerifierParameters({
+      proof: {
+        ...proof,
+        name: "outer_aadhaar_count_3",
+        proof: [...publicInputs, ...fixture.proof].map(bare).join(""),
+        committedInputs: { facematch: iosFacematch },
+      },
+      network: "aztec",
+    })
+
+    expect(capsules[0]).toEqual({
+      slot: 1,
+      fields: [
+        ...[...fixture.vkeyFields, ...fixture.proof, ...publicInputs].map(hexField),
+        fixture.circuitVersionPacked,
+      ],
+    })
+    expect(capsules.slice(1)).toEqual([
+      {
+        slot: 4,
+        fields: [
+          hexField(APPLE_APP_ATTEST_ROOT_KEY_HASH),
+          hexField(1),
+          hexField(ZKPASSPORT_IOS_APP_ID_HASH),
+          hexField(0),
+          hexField(2),
+          hexField(0),
+        ],
+      },
+    ])
+  })
+
   test("reads an Android camera read's attestation", async () => {
     servedCircuit = ATTESTED_CIRCUIT
 

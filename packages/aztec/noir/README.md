@@ -11,10 +11,10 @@ Example Aztec contracts that use them, and an end-to-end test on a local Aztec n
 [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples).
 
 The verifier accepts outer proofs of ZKPassport circuits 0.23.x made with `bb` 6.0.0, the version the
-Aztec 6.0.0 protocol runs: proofs of a passport or ID card read from its chip (verification method
-100, tier 1) with `verify_zkpassport_proof`, and of an ID read by the camera of ZKPassport's app and
-attested by the device (methods 200 and 201, tier 2) with `verify_device_attested_proof`. Proofs of
-other documents, such as Aadhaar (101), come from other outer circuits, which it doesn't verify yet.
+Aztec 6.0.0 protocol runs: proofs of an ID its issuer signed (tier 1), a passport or ID card read
+from its chip (verification method 100) or an Aadhaar (101), with `verify_zkpassport_proof`, and of
+an ID read by the camera of ZKPassport's app and attested by the device (methods 200 and 201, tier
+2) with `verify_device_attested_proof`.
 
 ## Workspace Layout
 
@@ -261,6 +261,20 @@ let verified = verify_device_attested_proof_for_user(self.context, self.msg_send
 - **Unique identifier.** A passport read by camera has another unique identifier than the same
   passport read by chip: the chip's comes from its signed data, the camera read's from the MRZ.
   A contract that accepts both tiers sees a passport once per tier.
+
+### Aadhaar
+
+An Aadhaar is India's ID, its Secure QR code signed by UIDAI. It's tier 1, so a config that
+accepts tier 1, as one made only with `ServiceConfig::new` does, accepts it, and
+`verify_zkpassport_proof` verifies its proof: an `outer_aadhaar_count_N` proof has the layout of
+the `outer_count_(N + 2)` proof answering the same request. `allow_method(100)` accepts chips only.
+
+- **Strict face match.** Anyone with a copy of the QR code holds the photo it carries, so an Aadhaar
+  passes only a query with `strict_face_match()`, whose liveness checks a held-up photo fails.
+  ZKPassport's app adds one to every Aadhaar proof, so a query without one fails too.
+- **No nationality.** An Aadhaar doesn't prove a nationality, so a query that asks for one in a list
+  or for it to be disclosed refuses it. `nationality_out` works.
+- **Unique identifier.** An Aadhaar's comes from its photo, so its holder's passport has another.
 
 ## Trust considerations
 

@@ -9,7 +9,7 @@ pub contract VerifierTest {
     use aztec::{macros::functions::external, protocol::address::AztecAddress};
     use zkpassport_aztec_verifier::constants::{
         NULLIFIER_TYPE_SALTED, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
-        VERIFICATION_TIER_DEVICE_ATTESTED,
+        VERIFICATION_METHOD_ICAO_CHIP, VERIFICATION_TIER_DEVICE_ATTESTED,
     };
     use zkpassport_aztec_verifier::query::Query;
     use zkpassport_aztec_verifier::verify::{
@@ -24,6 +24,10 @@ pub contract VerifierTest {
     // strict face match
     global SALTED_SERVICE: ServiceConfig =
         ServiceConfig::new("example.com").unique_identifier_type(NULLIFIER_TYPE_SALTED);
+
+    // An app that accepts chips but not Aadhaar
+    global CHIP_SERVICE: ServiceConfig =
+        ServiceConfig::new("example.com").allow_method(VERIFICATION_METHOD_ICAO_CHIP);
 
     // Apps that accept IDs read by the camera of ZKPassport's app on either platform, and on iPhones
     // only
@@ -135,6 +139,39 @@ pub contract VerifierTest {
         let verified =
             verify_zkpassport_proof(self.context, self.msg_sender(), SALTED_SERVICE, query);
         [verified.unique_identifier, verified.face_match.unwrap().commitment()]
+    }
+
+    // The verification method, and the commitment of the face match the proof returns
+    #[external("private")]
+    fn verify_strict_face_match(user: AztecAddress) -> [Field; 2] {
+        let query = Query::new().strict_face_match().bind_user_address(user);
+        let verified = verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query);
+        [verified.verification_method, verified.face_match.unwrap().commitment()]
+    }
+
+    #[external("private")]
+    fn verify_strict_face_match_from_chips(user: AztecAddress) -> Field {
+        let query = Query::new().strict_face_match().bind_user_address(user);
+        verify_zkpassport_proof(self.context, self.msg_sender(), CHIP_SERVICE, query)
+            .unique_identifier
+    }
+
+    #[external("private")]
+    fn verify_nationality_with_strict_face_match() -> [u8; 3] {
+        let query = Query::new().disclose_nationality().strict_face_match();
+        verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).nationality()
+    }
+
+    #[external("private")]
+    fn verify_nationality_in_with_strict_face_match() -> Field {
+        let query = Query::new().nationality_in(["IND"]).strict_face_match();
+        verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).unique_identifier
+    }
+
+    #[external("private")]
+    fn verify_nationality_out_with_strict_face_match() -> Field {
+        let query = Query::new().nationality_out(["PRK"]).strict_face_match();
+        verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).unique_identifier
     }
 
     #[external("private")]

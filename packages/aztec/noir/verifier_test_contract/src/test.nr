@@ -12,14 +12,15 @@ use zkpassport::app_attest::{
     IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
 };
 use zkpassport::commitments::{
-    age_commitment, bind_commitment, disclose_commitment, sanctions_commitment,
+    age_commitment, bind_commitment, disclose_commitment, nationality_exclusion_commitment,
+    nationality_inclusion_commitment, sanctions_commitment,
 };
 use zkpassport::constants::{
     APP_ATTEST_ENV_PRODUCTION, ATTESTED_ID_CAPSULE_SLOT, DISCLOSE_CAPSULE_SLOT,
     FACE_MATCH_CAPSULE_SLOT, FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, NULLIFIER_TYPE_SALTED,
     PI_PARAMS_START, PROOF_CAPSULE_SLOT, PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT,
     VERIFICATION_METHOD_ATTESTED_CAPTURE_ANDROID, VERIFICATION_METHOD_ATTESTED_CAPTURE_IOS,
-    VERIFICATION_METHOD_ICAO_CHIP, VK_FIELDS,
+    VERIFICATION_METHOD_ICAO_CHIP, VERIFICATION_METHOD_UIDAI_AADHAAR, VK_FIELDS,
 };
 use zkpassport::face_match::FaceMatch;
 use zkpassport::fixtures::{
@@ -970,6 +971,214 @@ unconstrained fn rejects_a_face_match_other_than_the_proofs() {
     let _ = verify_salted_strict_face_match(
         ios_face_match(FACE_MATCH_MODE_STRICT),
         Option::some(delivered),
+    );
+}
+
+// The age fixture as an Aadhaar's proof of {`first`, `second`}: an outer_aadhaar_count_3 proof has
+// the layout of the fixture's outer_count_5, so its param commitments and verification method are
+// all a test needs to change
+fn aadhaar_fixture(first: Field, second: Field) -> [Field; 585] {
+    let mut blob = age_fixture_blob_for_txe();
+    let params_start = VK_FIELDS + PROOF_FIELDS + PI_PARAMS_START;
+    blob[params_start] = first;
+    blob[params_start + 1] = second;
+    blob[FIXTURE_PUBLIC_INPUTS_END - 1] = VERIFICATION_METHOD_UIDAI_AADHAAR;
+    blob
+}
+
+fn fixture_bind() -> Field {
+    bind_commitment(
+        Option::some(AGE_FIXTURE_BIND_ADDRESS),
+        TXE_CHAIN_ID,
+        Option::none(),
+    )
+}
+
+// Delivers an Aadhaar's proof capsule, its face match capsule and, when some, its disclose capsule
+unconstrained fn deliver_aadhaar(
+    env: &mut TestEnvironment,
+    verifier: AztecAddress,
+    sender: AztecAddress,
+    blob: [Field; 585],
+    face_match: FaceMatch,
+    disclose_payload: Option<[Field; 180]>,
+) {
+    deliver(
+        env,
+        verifier,
+        sender,
+        Option::some(blob),
+        disclose_payload,
+        Option::none(),
+    );
+    let payload = face_match_payload(face_match);
+    env.utility_context_at(verifier, |_| {
+        capsules::store(verifier, FACE_MATCH_CAPSULE_SLOT, payload, sender);
+    });
+}
+
+#[test]
+unconstrained fn verifies_an_aadhaar_with_a_strict_face_match() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+    deliver_aadhaar(
+        &mut env,
+        verifier,
+        sender,
+        aadhaar_fixture(face_match.commitment(), fixture_bind()),
+        face_match,
+        Option::none(),
+    );
+
+    let result =
+        env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+
+    assert_eq(result[0], VERIFICATION_METHOD_UIDAI_AADHAAR);
+    assert_eq(result[1], face_match.commitment());
+}
+
+#[test]
+unconstrained fn verifies_a_chip_read_with_a_strict_face_match() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+    let mut blob = aadhaar_fixture(face_match.commitment(), fixture_bind());
+    blob[FIXTURE_PUBLIC_INPUTS_END - 1] = VERIFICATION_METHOD_ICAO_CHIP;
+    deliver_aadhaar(&mut env, verifier, sender, blob, face_match, Option::none());
+
+    let result =
+        env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+
+    assert_eq(result[0], VERIFICATION_METHOD_ICAO_CHIP);
+}
+
+// A face match without liveness checks could be passed with the photo the QR code carries
+#[test(should_fail_with = "an Aadhaar needs a strict face match")]
+unconstrained fn rejects_an_aadhaar_with_a_regular_face_match() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(FACE_MATCH_MODE_REGULAR);
+    deliver_aadhaar(
+        &mut env,
+        verifier,
+        sender,
+        aadhaar_fixture(face_match.commitment(), fixture_bind()),
+        face_match,
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_face_match(user));
+}
+
+#[test(should_fail_with = "an Aadhaar needs a strict face match")]
+unconstrained fn rejects_an_aadhaar_without_a_face_match() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(aadhaar_fixture(age_commitment(18, 0), fixture_bind())),
+        Option::none(),
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age(user));
+}
+
+#[test(should_fail_with = "verification method not allowed")]
+unconstrained fn rejects_an_aadhaar_for_an_app_that_accepts_chips_only() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+    deliver_aadhaar(
+        &mut env,
+        verifier,
+        sender,
+        aadhaar_fixture(face_match.commitment(), fixture_bind()),
+        face_match,
+        Option::none(),
+    );
+
+    let _ = env.call_private(
+        sender,
+        VerifierTest::at(verifier).verify_strict_face_match_from_chips(user),
+    );
+}
+
+#[test(should_fail_with = "an Aadhaar proves no nationality")]
+unconstrained fn rejects_an_aadhaar_for_a_nationality_in_a_list() {
+    let (mut env, verifier) = setup([]);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+    deliver_aadhaar(
+        &mut env,
+        verifier,
+        sender,
+        aadhaar_fixture(
+            nationality_inclusion_commitment(["IND"]),
+            face_match.commitment(),
+        ),
+        face_match,
+        Option::none(),
+    );
+
+    let _ = env.call_private(
+        sender,
+        VerifierTest::at(verifier).verify_nationality_in_with_strict_face_match(),
+    );
+}
+
+#[test(should_fail_with = "an Aadhaar proves no nationality")]
+unconstrained fn rejects_an_aadhaar_asked_to_disclose_its_nationality() {
+    let (mut env, verifier) = setup([]);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+    let (mask, bytes) = passport_disclosure(54, "XXX".as_bytes());
+    deliver_aadhaar(
+        &mut env,
+        verifier,
+        sender,
+        aadhaar_fixture(disclose_commitment(mask, bytes), face_match.commitment()),
+        face_match,
+        Option::some(disclose_payload(mask, bytes)),
+    );
+
+    let _ = env.call_private(
+        sender,
+        VerifierTest::at(verifier).verify_nationality_with_strict_face_match(),
+    );
+}
+
+#[test]
+unconstrained fn verifies_an_aadhaar_for_a_nationality_not_in_a_list() {
+    let (mut env, verifier) = setup([]);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+    deliver_aadhaar(
+        &mut env,
+        verifier,
+        sender,
+        aadhaar_fixture(
+            nationality_exclusion_commitment(["PRK"]),
+            face_match.commitment(),
+        ),
+        face_match,
+        Option::none(),
+    );
+
+    assert(
+        env.call_private(
+            sender,
+            VerifierTest::at(verifier).verify_nationality_out_with_strict_face_match(),
+        )
+            != 0,
     );
 }
 

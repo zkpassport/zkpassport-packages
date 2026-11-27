@@ -30,9 +30,10 @@ export type AztecNetwork = "aztec" | "aztec_testnet"
 
 export class AztecVerifier {
   /**
-   * The capsules an Aztec contract reads for a circuits 0.23.x proof: for an `outer_count_N` proof
-   * with `verify_zkpassport_proof`, the proof capsule, then the disclose, sanctions and face match
-   * capsules of the committed inputs the proof carries; for an `outer_attested_id_count_N` proof of
+   * The capsules an Aztec contract reads for a circuits 0.23.x proof: for an `outer_count_N` proof,
+   * or an Aadhaar's `outer_aadhaar_count_N` proof, with `verify_zkpassport_proof`, the proof
+   * capsule, then the disclose, sanctions and face match capsules of the committed inputs the proof
+   * carries; for an `outer_attested_id_count_N` proof of
    * an ID read by camera, with `verify_device_attested_proof`, the proof capsule, the disclose and
    * sanctions capsules, and the attested ID capsule of its device attestation. The outer circuit's
    * vk comes from `registryClient`, checked against the circuit manifest of the proof's version and
@@ -45,9 +46,12 @@ export class AztecVerifier {
     proof: ProofResult
     registryClient: RegistryClient
   }): Promise<AztecVerifierParameters> {
-    const outer = proof.name?.match(/^outer_(attested_id_)?count_(\d+)$/)
-    const attested = Boolean(outer?.[1])
+    const outer = proof.name?.match(/^outer_(attested_id_|aadhaar_)?count_(\d+)$/)
+    const attested = outer?.[1] === "attested_id_"
     const subproofs = Number(outer?.[2])
+    // An Aadhaar's single base proof stands in for the chip's 3, so its proof has the layout of the
+    // outer_count proof with 2 more subproofs
+    const chipSubproofs = outer?.[1] === "aadhaar_" ? subproofs + 2 : subproofs
     if (!subproofs) {
       throw new Error(
         "This proof cannot be verified on Aztec. Please make sure to use the `compressed` mode.",
@@ -91,7 +95,7 @@ export class AztecVerifier {
             publicInputs: proofData.publicInputs,
             version: proof.version,
           },
-          subproofs,
+          chipSubproofs,
           attested,
         ),
       },
