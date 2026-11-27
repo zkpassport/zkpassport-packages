@@ -578,13 +578,16 @@ pub fn build_facematch_client_data(
     Ok(tlv_bytes(0x30, &top))
 }
 
-/// `hashFaceprintPoseidon2` (utils.ts): serialize 512 floats as big-endian f32
+/// Values in one faceprint. Cross-repo contract: must match `FACEPRINT_LENGTH` in the mobile app.
+pub const FACEPRINT_LENGTH: usize = 128;
+
+/// `hashFaceprintPoseidon2` (utils.ts): serialize the faceprint as big-endian f32
 /// (normalizing -0 → +0), then the same pack+poseidon2 as `pack_and_hash_poseidon2`.
 pub fn hash_faceprint_poseidon2(faceprint: &[f32]) -> Result<Vec<u8>, String> {
-    if faceprint.len() != 512 {
-        return Err(format!("expected 512 values, got {}", faceprint.len()));
+    if faceprint.len() != FACEPRINT_LENGTH {
+        return Err(format!("expected {FACEPRINT_LENGTH} values, got {}", faceprint.len()));
     }
-    let mut buf = Vec::with_capacity(512 * 4);
+    let mut buf = Vec::with_capacity(FACEPRINT_LENGTH * 4);
     for &x in faceprint {
         if !x.is_finite() {
             return Err("non-finite".into());
@@ -783,13 +786,13 @@ mod tests {
 
     #[test]
     fn faceprint_hash_matches_ts() {
-        // Same deterministic input as the TS oracle (i-256)*0.013, [7] = -0.
-        let mut fp: Vec<f32> = (0..512).map(|i| ((i as f64 - 256.0) * 0.013) as f32).collect();
+        // Same deterministic input as the TS oracle (i-64)*0.013, [7] = -0.
+        let mut fp: Vec<f32> = (0..128).map(|i| ((i as f64 - 64.0) * 0.013) as f32).collect();
         fp[7] = -0.0;
         let h = hash_faceprint_poseidon2(&fp).unwrap();
         assert_eq!(
             hex::encode(&h),
-            "0ee12fe7a3afd041a59126ce7f004bb0606367db1055d6a2bb37f576da05c394",
+            "251155110a9b0ee1720ef019751b8d2cbdfea2f6117d50b9110ae786b2a45111",
         );
     }
 }
