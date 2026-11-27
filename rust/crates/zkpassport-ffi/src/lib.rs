@@ -411,7 +411,56 @@ pub extern "C" fn zkpassport_certificates_url(chain_id: u64, root: *const c_char
         .into_raw()
 }
 
-/// The request for a chain's latest certificate, circuit and sanctions roots:
+/// Sanctions tree URL for a given sanctions root.
+#[no_mangle]
+pub extern "C" fn zkpassport_sanctions_tree_url(chain_id: u64, root: *const c_char) -> *mut c_char {
+    let root = unsafe { CStr::from_ptr(root) }.to_str().unwrap_or("");
+    CString::new(zkpassport_core::plan::sanctions_tree_url(chain_id, root))
+        .unwrap()
+        .into_raw()
+}
+
+/// The next step of reading the latest certificate, circuit and sanctions roots of the registry
+/// on a chain, an EVM chain or an Aztec network. `replies_json` is a JSON array of the reply to
+/// each request made so far, as strings in order, starting with `[]`.
+/// Response: `{url, body}` to POST as JSON before calling again with the reply added,
+/// `{certificates_root, circuits_root, sanctions_root}` once the read is complete, or `{error}`.
+/// Free with `zkpassport_free_string`.
+///
+/// # Safety
+/// `replies_json` must be a valid NUL-terminated UTF-8 C string.
+#[no_mangle]
+pub unsafe extern "C" fn zkpassport_latest_roots_step(
+    chain_id: u64,
+    replies_json: *const c_char,
+) -> *mut c_char {
+    ffi_json(replies_json, |replies_json| latest_roots_step(chain_id, replies_json))
+}
+
+fn latest_roots_step(chain_id: u64, replies_json: &str) -> Result<serde_json::Value, String> {
+    use zkpassport_core::latest_roots::LatestRootsStep;
+
+    let replies: Vec<String> = serde_json::from_str(replies_json)
+        .map_err(|e| format!("replies are not a JSON array of strings: {e}"))?;
+    let replies: Vec<&str> = replies.iter().map(String::as_str).collect();
+
+    Ok(match zkpassport_core::latest_roots::latest_roots_step(chain_id, &replies)? {
+        LatestRootsStep::Request(request) => {
+            serde_json::json!({ "url": request.url, "body": request.body })
+        }
+        LatestRootsStep::Roots(roots) => roots_json(roots),
+    })
+}
+
+fn roots_json(roots: zkpassport_core::latest_roots::LatestRoots) -> serde_json::Value {
+    serde_json::json!({
+        "certificates_root": roots.certificates,
+        "circuits_root": roots.circuits,
+        "sanctions_root": roots.sanctions,
+    })
+}
+
+/// The request for an EVM chain's latest certificate, circuit and sanctions roots:
 /// `{url, body}` to POST as JSON, or `{error}`. Pass the reply to
 /// `zkpassport_parse_latest_roots`. Free with `zkpassport_free_string`.
 #[no_mangle]
@@ -432,12 +481,7 @@ pub extern "C" fn zkpassport_latest_roots_request(chain_id: u64) -> *mut c_char 
 #[no_mangle]
 pub unsafe extern "C" fn zkpassport_parse_latest_roots(reply_json: *const c_char) -> *mut c_char {
     ffi_json(reply_json, |reply| {
-        let roots = zkpassport_core::latest_roots::parse_latest_roots(reply)?;
-        Ok(serde_json::json!({
-            "certificates_root": roots.certificates,
-            "circuits_root": roots.circuits,
-            "sanctions_root": roots.sanctions,
-        }))
+        Ok(roots_json(zkpassport_core::latest_roots::parse_latest_roots(reply)?))
     })
 }
 
@@ -897,6 +941,41 @@ mod tests {
         assert_eq!(roots["certificates_root"], certificates_root);
         assert_eq!(roots["circuits_root"], circuits_root);
         assert_eq!(roots["sanctions_root"], sanctions_root);
+    }
+
+    #[test]
+    fn latest_roots_steps_for_an_aztec_network() {
+        let step = |replies: &[String]| -> serde_json::Value {
+            let replies = CString::new(serde_json::json!(replies).to_string()).unwrap();
+            let out = unsafe { zkpassport_latest_roots_step(679261766, replies.as_ptr()) };
+            let json = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_string();
+            unsafe { zkpassport_free_string(out) };
+            serde_json::from_str(&json).unwrap()
+        };
+        let roots = ["1", "2", "3"].map(|digit| format!("0x{}", digit.repeat(64)));
+        let block_number = serde_json::json!([{ "id": 0, "result": 42 }]).to_string();
+        let block = serde_json::json!({ "header": { "globalVariables": { "timestamp": "100" } } });
+        let mut storage = vec![serde_json::json!({ "id": 0, "result": block })];
+        for root in &roots {
+            for word in ["0x0", "0x0", "0x0", root.as_str(), "0x0"] {
+                storage.push(serde_json::json!({ "id": storage.len(), "result": word }));
+            }
+        }
+        let storage = serde_json::Value::Array(storage).to_string();
+
+        let first = step(&[]);
+        let second = step(&[block_number.clone()]);
+        let last = step(&[block_number.clone(), storage.clone()]);
+        let failed = step(&["<html>502 Bad Gateway</html>".to_string()]);
+
+        assert_eq!(first["url"], "https://aztec-testnet.drpc.org");
+        assert!(first["body"].as_str().unwrap().contains("node_getBlockNumber"), "{first}");
+        assert_eq!(second["url"], "https://aztec-testnet.drpc.org");
+        assert!(second["body"].as_str().unwrap().contains("node_getPublicStorageAt"), "{second}");
+        assert_eq!(last["certificates_root"], roots[0]);
+        assert_eq!(last["circuits_root"], roots[1]);
+        assert_eq!(last["sanctions_root"], roots[2]);
+        assert!(failed["error"].is_string(), "{failed}");
     }
 }
 

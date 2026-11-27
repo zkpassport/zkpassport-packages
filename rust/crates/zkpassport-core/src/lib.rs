@@ -13,6 +13,7 @@
 //! module is fully ported and proof-tested end-to-end.
 
 pub mod aadhaar;
+pub mod aztec_registry;
 pub mod barrett;
 pub mod bytes;
 pub mod commitments;
