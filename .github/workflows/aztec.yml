@@ -116,3 +116,7 @@ jobs:
       - name: Test TS package
         run: bun run test
         working-directory: packages/aztec/ts
+
+      - name: Test deployment scripts
+        run: bun test ./deployment
+        working-directory: packages/aztec/scripts

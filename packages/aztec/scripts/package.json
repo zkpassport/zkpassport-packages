@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "format": "prettier -c -w deployment",
+    "test": "bun test ./deployment",
     "account:testnet": "tsx deployment/create-schnorr-account.ts testnet",
     "account:mainnet": "tsx deployment/create-schnorr-account.ts mainnet",
     "deploy:testnet": "tsx deployment/deploy-testnet.ts",
